@@ -81,6 +81,32 @@ const colorDot: Record<string, string> = {
   Lemon: 'bg-yellow-300',
   Green: 'bg-green-500',
 };
+const actionDefinitions = [
+  {
+    value: 'เบิก',
+    title: 'เบิก / Withdraw / Request',
+    description: 'ขอรับเสื้อจากคลังเพื่อนำไปใช้งานตามหน้าที่',
+    english: 'Request an item from stock for operational use.',
+  },
+  {
+    value: 'จ่าย',
+    title: 'จ่าย / Disburse / Issue',
+    description: 'เจ้าหน้าที่ตรวจสอบแล้วส่งมอบเสื้อให้ผู้เบิกหรือผู้รับ',
+    english: 'Verify and hand the requested item to the recipient.',
+  },
+  {
+    value: 'คืน',
+    title: 'คืน / Return',
+    description: 'นำเสื้อที่เหลือหรือใช้เสร็จแล้วกลับเข้าคลัง',
+    english: 'Return unused or completed-use items to stock.',
+  },
+  {
+    value: 'ย้าย',
+    title: 'ย้าย / Transfer',
+    description: 'เปลี่ยนสถานที่เก็บหรือผู้ดูแล โดยเสื้อยังไม่ถูกใช้หมด',
+    english: 'Move an item to another location or responsible owner.',
+  },
+] as const;
 
 export function InventoryApp() {
   const [data, setData] = useState<Payload | null>(null);
@@ -218,7 +244,7 @@ export function InventoryApp() {
                 Thai Equestrian Federation
               </p>
               <h1 className="text-xl font-semibold tracking-tight">
-                ระบบสต๊อกเสื้อ BIB
+                ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory
               </h1>
             </div>
           </div>
@@ -227,7 +253,7 @@ export function InventoryApp() {
             onClick={() => setOpen(true)}
           >
             <ArrowLeftRight className="size-4" />
-            ทำรายการเบิก–จ่าย–คืน
+            เบิก–จ่าย–คืน–ย้าย / Transactions
           </button>
         </div>
       </header>
@@ -241,6 +267,9 @@ export function InventoryApp() {
             <h2 className="text-3xl font-semibold tracking-tight">
               เสื้ออยู่ที่ไหน เบอร์อะไร สีอะไร
             </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Where is each shirt, which BIB number, and what color?
+            </p>
           </div>
           <label className="flex min-w-[300px] items-center gap-2 rounded-xl border bg-card px-3 shadow-sm">
             <Search className="size-4 text-muted-foreground" />
@@ -294,13 +323,39 @@ export function InventoryApp() {
           ))}
         </section>
 
+        <section className="mb-7 rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="mb-4">
+            <h3 className="font-semibold">คำอธิบายรายการ / Transaction guide</h3>
+            <p className="text-sm text-muted-foreground">
+              ใช้คำอธิบายนี้เพื่อเลือกประเภทการทำรายการให้ตรงกับขั้นตอนจริง / Choose the
+              action that matches the real stock movement.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {actionDefinitions.map((item) => (
+              <article
+                key={item.value}
+                className="rounded-xl bg-secondary/60 p-4"
+              >
+                <h4 className="text-sm font-semibold">{item.title}</h4>
+                <p className="mt-2 text-sm leading-6 text-foreground/80">
+                  {item.description}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  {item.english}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex rounded-xl border bg-card p-1 shadow-sm">
             {(
               [
-                ['q3', 'ตำแหน่งล่าสุด'],
-                ['stock', 'สต๊อกตั้งต้น'],
-                ['history', 'ประวัติรายการ'],
+                ['q3', 'ตำแหน่งล่าสุด / Latest location'],
+                ['stock', 'สต๊อกตั้งต้น / Initial stock'],
+                ['history', 'ประวัติรายการ / History'],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -339,7 +394,9 @@ export function InventoryApp() {
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
               <div>
-                <h3 className="font-semibold">ตำแหน่งเสื้อ DPE Aug 2026</h3>
+                <h3 className="font-semibold">
+                  ตำแหน่งเสื้อ DPE Aug 2026 / Latest shirt locations
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   พบ {filtered.length} รายการ
                 </p>
@@ -433,9 +490,10 @@ export function InventoryApp() {
         {tab === 'stock' && (
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="border-b px-5 py-4">
-              <h3 className="font-semibold">สต๊อกตั้งต้นจาก En เสื้อ.xlsx</h3>
+              <h3 className="font-semibold">สต๊อกตั้งต้น / Initial stock</h3>
               <p className="text-sm text-muted-foreground">
-                63 รายการ มูลค่าต่อชิ้น 300 บาท
+                จาก En เสื้อ.xlsx และ TEF BIB 16jun.xlsx ·{' '}
+                {data?.stock.length ?? 0} รายการ
               </p>
             </div>
             <Table>
@@ -489,7 +547,7 @@ export function InventoryApp() {
             <div className="border-b px-5 py-4">
               <h3 className="flex items-center gap-2 font-semibold">
                 <History className="size-4" />
-                ประวัติเบิก–จ่าย–คืน
+                ประวัติเบิก–จ่าย–คืน–ย้าย / Transaction history
               </h3>
               <p className="text-sm text-muted-foreground">
                 แสดง 100 รายการล่าสุด
@@ -532,8 +590,10 @@ export function InventoryApp() {
               <div className="grid min-h-56 place-items-center text-center text-muted-foreground">
                 <div>
                   <History className="mx-auto mb-3 size-8 opacity-50" />
-                  <p>ยังไม่มีประวัติรายการ</p>
-                  <p className="text-sm">เริ่มจากปุ่ม “ทำรายการเบิก–จ่าย–คืน”</p>
+                  <p>ยังไม่มีประวัติรายการ / No transactions yet</p>
+                  <p className="text-sm">
+                    เริ่มจากปุ่ม “เบิก–จ่าย–คืน–ย้าย / Transactions”
+                  </p>
                 </div>
               </div>
             )}
@@ -546,10 +606,12 @@ export function InventoryApp() {
             ข้อมูลที่ควรทราบ
           </h3>
           <ul className="grid gap-1.5 md:grid-cols-2">
-            <li>• รายการล่าสุด 44 เบอร์: 43 เบอร์อยู่ Thai Polo</li>
-            <li>• BIB 22 อยู่สำนักงาน/สมาคมตามข้อมูลล่าสุด</li>
-            <li>• BIB 27 ในภาพเป็น Green แต่สต๊อกตั้งต้นพบเฉพาะ Orange</li>
-            <li>• รหัส TEF_EN_0024 ซ้ำในสต๊อกตั้งต้น</li>
+            <li>• Latest list: 44 BIBs; 43 at Thai Polo</li>
+            <li>• BIB 22 is at the office/association</li>
+            <li>
+              • BIB 27 is Green in the latest image but Orange in initial stock
+            </li>
+            <li>• TEF_EN_0024 is duplicated in the initial stock</li>
           </ul>
         </div>
       </div>
@@ -570,10 +632,11 @@ export function InventoryApp() {
             <form onSubmit={submit} className="p-5">
               <div className="mb-5">
                 <h2 id="transaction-title" className="text-lg font-semibold">
-                  ทำรายการเสื้อ BIB
+                  ทำรายการเสื้อ BIB / BIB transaction
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  บันทึกการเบิก จ่าย คืน หรือย้ายสถานที่ ระบบจะเก็บประวัติทุกครั้ง
+                  บันทึกการเบิก จ่าย คืน หรือย้ายสถานที่ / Record each withdrawal, issue,
+                  return, or transfer.
                 </p>
               </div>
               <div className="grid gap-4">
@@ -606,8 +669,10 @@ export function InventoryApp() {
                       setForm({ ...form, action: e.target.value })
                     }
                   >
-                    {['เบิก', 'จ่าย', 'คืน', 'ย้าย'].map((a) => (
-                      <NativeSelectOption key={a}>{a}</NativeSelectOption>
+                    {actionDefinitions.map((item) => (
+                      <NativeSelectOption key={item.value} value={item.value}>
+                        {item.title}
+                      </NativeSelectOption>
                     ))}
                   </NativeSelect>
                 </div>

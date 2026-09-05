@@ -86,6 +86,35 @@ async function prepareDatabase() {
       ),
     );
   }
+  const stockSeedVersion = await db
+    .prepare("SELECT value FROM app_meta WHERE key = 'stock_seed_version'")
+    .first<{ value: string }>();
+  if (stockSeedVersion?.value !== 'tef-bib-16jun-v1') {
+    const tefStockSeeds = stockSeeds.filter(
+      (item) => item.event === 'TEF BIB 16 Jun',
+    );
+    const existingTefStock = await db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM stock_items WHERE event = 'TEF BIB 16 Jun'",
+      )
+      .first<{ count: number }>();
+    if (!existingTefStock?.count) {
+      await db.batch(
+        tefStockSeeds.map((item) =>
+          db
+            .prepare(
+              'INSERT INTO stock_items (code,event,color,bib,value) VALUES (?,?,?,?,?)',
+            )
+            .bind(item.code, item.event, item.color, item.bib, item.value),
+        ),
+      );
+    }
+    await db
+      .prepare(
+        "INSERT INTO app_meta (key,value) VALUES ('stock_seed_version','tef-bib-16jun-v1') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      )
+      .run();
+  }
   await db.prepare('PRAGMA optimize').run();
 }
 

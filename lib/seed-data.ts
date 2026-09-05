@@ -20,6 +20,28 @@ const cen80Bibs = [
   27, 28, 29,
 ];
 
+const tefBibRows = [
+  ...Array.from({ length: 20 }, (_, index) => 121 + index),
+  ...Array.from({ length: 20 }, (_, index) => 201 + index),
+];
+const tefOrangeQuantity = (bib: number) => (bib === 208 ? 3 : 4);
+const tefBibStock = tefBibRows.flatMap((bib) => [
+  {
+    code: `CEI_${bib}_WHITE`,
+    event: 'TEF BIB 16 Jun',
+    color: 'White',
+    bib,
+    value: 0,
+  },
+  ...Array.from({ length: tefOrangeQuantity(bib) }, (_, index) => ({
+    code: `CEI_${bib}_ORANGE_${index + 1}`,
+    event: 'TEF BIB 16 Jun',
+    color: 'Orange',
+    bib,
+    value: 0,
+  })),
+]);
+
 export const stockSeeds = [
   ...cen40Bibs.map((bib, index) => ({
     code: `TEF_EN_${String(index + 24).padStart(4, '0')}`,
@@ -35,6 +57,7 @@ export const stockSeeds = [
     bib,
     value: 300,
   })),
+  ...tefBibStock,
 ];
 
 const dpeRows: Array<[number, string, string, string]> = [
