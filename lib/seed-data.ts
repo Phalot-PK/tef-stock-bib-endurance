@@ -153,6 +153,21 @@ const rawAllocations: Array<
   bib === 22 ? 'สำนักงาน/สมาคม' : 'Thai Polo',
 ]);
 
+const ceiThaiPoloBibs = new Set([121, 122, 201, 202, 203, 204, 205]);
+const ceiRows: Array<[string, string, number, number, string, string, string]> =
+  [
+    ...Array.from({ length: 20 }, (_, index) => 121 + index),
+    ...Array.from({ length: 20 }, (_, index) => 201 + index),
+  ].map((bib) => [
+    'CEI July 2026',
+    'White',
+    bib,
+    bib,
+    '',
+    '',
+    ceiThaiPoloBibs.has(bib) ? 'Thai Polo' : 'สำนักงาน/สมาคม',
+  ]);
+
 export const allocationSeeds: AllocationSeed[] = rawAllocations.map(
   ([event, color, bibConfirm, bibSign, rider, club, location]) => {
     const stock =
@@ -180,3 +195,26 @@ export const allocationSeeds: AllocationSeed[] = rawAllocations.map(
     };
   },
 );
+
+export const allAllocationSeeds: AllocationSeed[] = [
+  ...allocationSeeds,
+  ...ceiRows.map(
+    ([event, color, bibConfirm, bibSign, rider, club, location]) => {
+      const stock = stockSeeds.find(
+        (item) => item.code === `CEI_${bibConfirm}_WHITE`,
+      );
+      return {
+        event,
+        color,
+        bibConfirm,
+        bibSign,
+        rider,
+        club,
+        location,
+        stockCode: stock?.code ?? '',
+        stockColor: stock?.color ?? '',
+        matchStatus: stock ? 'ตรงกับสต๊อกตั้งต้น' : 'ไม่พบในสต๊อกตั้งต้น',
+      };
+    },
+  ),
+];

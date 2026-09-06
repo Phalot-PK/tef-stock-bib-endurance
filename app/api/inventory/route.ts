@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { allocationSeeds, stockSeeds } from '@/lib/seed-data';
+import { allAllocationSeeds, stockSeeds } from '@/lib/seed-data';
 
 export const runtime = 'edge';
 const GOD_ADMIN_EMAIL = 'phalot.k@tefthailand.com';
@@ -48,17 +48,15 @@ async function prepareDatabase() {
   const seedVersion = await db
     .prepare("SELECT value FROM app_meta WHERE key = 'seed_version'")
     .first<{ value: string }>();
-  if (seedVersion?.value !== 'dpe-aug-2026-v2') {
-    await db.batch([
-      db.prepare('DELETE FROM transactions'),
-      db.prepare('DELETE FROM allocations'),
-    ]);
+  if (seedVersion?.value !== 'dpe-aug-2026-v3') {
     await db.batch(
-      allocationSeeds.map((item) =>
+      allAllocationSeeds.map((item) =>
         db
           .prepare(`INSERT INTO allocations
       (event,color,bib_confirm,bib_sign,rider,club,initial_location,current_location,current_status,stock_code,stock_color,match_status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+      SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (
+        SELECT 1 FROM allocations WHERE event = ? AND bib_confirm = ? AND color = ?
+      )`)
           .bind(
             item.event,
             item.color,
@@ -72,12 +70,15 @@ async function prepareDatabase() {
             item.stockCode,
             item.stockColor,
             item.matchStatus,
+            item.event,
+            item.bibConfirm,
+            item.color,
           ),
       ),
     );
     await db
       .prepare(
-        "INSERT INTO app_meta (key,value) VALUES ('seed_version','dpe-aug-2026-v2') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        "INSERT INTO app_meta (key,value) VALUES ('seed_version','dpe-aug-2026-v3') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
       )
       .run();
   }
@@ -98,7 +99,7 @@ async function prepareDatabase() {
   const stockSeedVersion = await db
     .prepare("SELECT value FROM app_meta WHERE key = 'stock_seed_version'")
     .first<{ value: string }>();
-  if (stockSeedVersion?.value !== 'tef-bib-16jun-v2') {
+  if (stockSeedVersion?.value !== 'tef-bib-16jun-v3') {
     const tefStockSeeds = stockSeeds.filter(
       (item) => item.event === 'TEF BIB 16 Jun',
     );
@@ -117,9 +118,18 @@ async function prepareDatabase() {
           ),
       ),
     );
+    await db.batch(
+      tefStockSeeds.map((item) =>
+        db
+          .prepare(
+            'UPDATE stock_items SET event = ?, color = ?, bib = ?, value = ? WHERE code = ?',
+          )
+          .bind(item.event, item.color, item.bib, item.value, item.code),
+      ),
+    );
     await db
       .prepare(
-        "INSERT INTO app_meta (key,value) VALUES ('stock_seed_version','tef-bib-16jun-v2') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        "INSERT INTO app_meta (key,value) VALUES ('stock_seed_version','tef-bib-16jun-v3') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
       )
       .run();
   }
