@@ -14,18 +14,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bib-stock-endurance.sweetminty1.chatgpt.site'),
-  title: 'ระบบสต๊อกเสื้อ BIB Endurance',
-  description: 'ค้นหาตำแหน่งเสื้อ BIB และบันทึกการเบิก จ่าย คืน',
+  title: 'ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory',
+  description:
+    'จัดกลุ่มเสื้อ BIB, Officials และ Photo พร้อมเบิก จ่าย คืน และย้าย / Grouped stock with withdrawal, issue, return, and transfer.',
   openGraph: {
-    title: 'ระบบสต๊อกเสื้อ BIB Endurance',
-    description: 'ค้นหา • เบิก • จ่าย • คืน',
+    title: 'ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory',
+    description: 'BIB • Officials • Photo · เบิก • จ่าย • คืน • ย้าย',
     type: 'website',
     images: ['/og.png'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ระบบสต๊อกเสื้อ BIB Endurance',
-    description: 'ค้นหา • เบิก • จ่าย • คืน',
+    title: 'ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory',
+    description: 'BIB • Officials • Photo · Withdraw • Issue • Return • Transfer',
     images: ['/og.png'],
   },
 };

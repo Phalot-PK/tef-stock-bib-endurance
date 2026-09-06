@@ -3,6 +3,10 @@ import { allocationSeeds, stockSeeds } from '@/lib/seed-data';
 
 export const runtime = 'edge';
 
+function authenticatedEmail(request: Request) {
+  return request.headers.get('oai-authenticated-user-email')?.trim() || '';
+}
+
 async function prepareDatabase() {
   const db = env.DB;
   await db.batch([
@@ -89,36 +93,41 @@ async function prepareDatabase() {
   const stockSeedVersion = await db
     .prepare("SELECT value FROM app_meta WHERE key = 'stock_seed_version'")
     .first<{ value: string }>();
-  if (stockSeedVersion?.value !== 'tef-bib-16jun-v1') {
+  if (stockSeedVersion?.value !== 'tef-bib-16jun-v2') {
     const tefStockSeeds = stockSeeds.filter(
       (item) => item.event === 'TEF BIB 16 Jun',
     );
-    const existingTefStock = await db
-      .prepare(
-        "SELECT COUNT(*) AS count FROM stock_items WHERE event = 'TEF BIB 16 Jun'",
-      )
-      .first<{ count: number }>();
-    if (!existingTefStock?.count) {
-      await db.batch(
-        tefStockSeeds.map((item) =>
-          db
-            .prepare(
-              'INSERT INTO stock_items (code,event,color,bib,value) VALUES (?,?,?,?,?)',
-            )
-            .bind(item.code, item.event, item.color, item.bib, item.value),
-        ),
-      );
-    }
+    await db.batch(
+      tefStockSeeds.map((item) =>
+        db
+          .prepare(`INSERT INTO stock_items (code,event,color,bib,value)
+            SELECT ?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM stock_items WHERE code = ?)`)
+          .bind(
+            item.code,
+            item.event,
+            item.color,
+            item.bib,
+            item.value,
+            item.code,
+          ),
+      ),
+    );
     await db
       .prepare(
-        "INSERT INTO app_meta (key,value) VALUES ('stock_seed_version','tef-bib-16jun-v1') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        "INSERT INTO app_meta (key,value) VALUES ('stock_seed_version','tef-bib-16jun-v2') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
       )
       .run();
   }
   await db.prepare('PRAGMA optimize').run();
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const email = authenticatedEmail(request);
+  if (!email)
+    return Response.json(
+      { error: 'กรุณาเข้าสู่ระบบด้วยบัญชี Gmail/Workspace ก่อนใช้งาน' },
+      { status: 401 },
+    );
   await prepareDatabase();
   const [allocations, transactions, stock] = await Promise.all([
     env.DB.prepare(
@@ -130,6 +139,7 @@ export async function GET() {
     env.DB.prepare('SELECT * FROM stock_items ORDER BY event, bib').all(),
   ]);
   return Response.json({
+    viewer: { email },
     allocations: allocations.results,
     transactions: transactions.results,
     stock: stock.results,
@@ -137,6 +147,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const email = authenticatedEmail(request);
+  if (!email)
+    return Response.json(
+      { error: 'กรุณาเข้าสู่ระบบด้วยบัญชี Gmail/Workspace ก่อนทำรายการ' },
+      { status: 401 },
+    );
   await prepareDatabase();
   const body = (await request.json()) as {
     allocationId?: number;

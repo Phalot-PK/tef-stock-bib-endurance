@@ -60,10 +60,11 @@ type Stock = {
   code: string;
   event: string;
   color: string;
-  bib: number;
+  bib: number | string;
   value: number;
 };
 type Payload = {
+  viewer: { email: string };
   allocations: Allocation[];
   transactions: Transaction[];
   stock: Stock[];
@@ -80,7 +81,15 @@ const colorDot: Record<string, string> = {
   Orange: 'bg-orange-400',
   Lemon: 'bg-yellow-300',
   Green: 'bg-green-500',
+  Blue: 'bg-blue-600',
+  Photo: 'bg-violet-500',
 };
+const stockGroup = (item: Pick<Stock, 'code'>) =>
+  item.code.startsWith('J_BLUE')
+    ? 'เสื้อกรรมการ / Officials'
+    : item.code.startsWith('Photo')
+      ? 'เสื้อ Photo / Photo'
+      : 'เสื้อ BIB / Numbered BIB';
 const actionDefinitions = [
   {
     value: 'เบิก',
@@ -114,6 +123,7 @@ export function InventoryApp() {
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('ทั้งหมด');
   const [color, setColor] = useState('ทั้งหมด');
+  const [stockGroupFilter, setStockGroupFilter] = useState('ทั้งหมด');
   const [tab, setTab] = useState<'q3' | 'stock' | 'history'>('q3');
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -161,6 +171,18 @@ export function InventoryApp() {
         (color === 'ทั้งหมด' || item.color === color),
     );
   }, [data, search, location, color]);
+  const stockFiltered = useMemo(() => {
+    if (!data) return [];
+    const q = search.trim().toLowerCase();
+    return data.stock.filter(
+      (item) =>
+        (!q ||
+          [item.code, item.event, item.color, item.bib].some((v) =>
+            String(v).toLowerCase().includes(q),
+          )) &&
+        (stockGroupFilter === 'ทั้งหมด' || stockGroup(item) === stockGroupFilter),
+    );
+  }, [data, search, stockGroupFilter]);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -201,6 +223,20 @@ export function InventoryApp() {
           กำลังเตรียมข้อมูลสต๊อก
         </div>
       </div>
+    );
+  if (!data && error)
+    return (
+      <main className="grid min-h-screen place-items-center bg-background p-6">
+        <section className="w-full max-w-lg rounded-2xl border bg-card p-7 text-center shadow-sm">
+          <Shirt className="mx-auto mb-4 size-10 text-primary" />
+          <h1 className="text-xl font-semibold">เข้าสู่ระบบ / Sign in</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+          <p className="mt-4 text-xs text-muted-foreground">
+            ระบบนี้ใช้บัญชีที่ Sites อนุญาต เช่น Gmail/Workspace account / Use an allowed
+            Gmail or Workspace account.
+          </p>
+        </section>
+      </main>
     );
 
   const thaiPolo =
@@ -246,6 +282,11 @@ export function InventoryApp() {
               <h1 className="text-xl font-semibold tracking-tight">
                 ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory
               </h1>
+              {data?.viewer.email && (
+                <p className="mt-1 text-xs text-primary-foreground/70">
+                  Signed in / เข้าสู่ระบบ: {data.viewer.email}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -277,7 +318,7 @@ export function InventoryApp() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-11 w-full border-0 bg-transparent px-0 text-sm outline-none"
-              placeholder="ค้นหา BIB, ผู้ขี่ หรือสโมสร"
+              placeholder="ค้นหา BIB, สโมสร หรือรหัส"
             />
           </label>
         </section>
@@ -388,6 +429,17 @@ export function InventoryApp() {
               </NativeSelect>
             </div>
           )}
+          {tab === 'stock' && (
+            <NativeSelect
+              value={stockGroupFilter}
+              onChange={(e) => setStockGroupFilter(e.target.value)}
+            >
+              <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
+              <NativeSelectOption>เสื้อ BIB / Numbered BIB</NativeSelectOption>
+              <NativeSelectOption>เสื้อกรรมการ / Officials</NativeSelectOption>
+              <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
+            </NativeSelect>
+          )}
         </section>
 
         {tab === 'q3' && (
@@ -412,7 +464,7 @@ export function InventoryApp() {
                   <TableHead>BIB</TableHead>
                   <TableHead>สี</TableHead>
                   <TableHead>รายการ</TableHead>
-                  <TableHead>ผู้ขี่</TableHead>
+                  <TableHead>สโมสร / Club</TableHead>
                   <TableHead>ตำแหน่งปัจจุบัน</TableHead>
                   <TableHead>สถานะ</TableHead>
                   <TableHead>เทียบสต๊อก</TableHead>
@@ -437,7 +489,6 @@ export function InventoryApp() {
                     </TableCell>
                     <TableCell>{item.event}</TableCell>
                     <TableCell>
-                      <p className="font-medium">{item.rider}</p>
                       <p className="max-w-[260px] truncate text-xs text-muted-foreground">
                         {item.club}
                       </p>
@@ -500,6 +551,7 @@ export function InventoryApp() {
               <TableHeader>
                 <TableRow className="bg-secondary/70">
                   <TableHead>รหัส</TableHead>
+                  <TableHead>กลุ่ม / Group</TableHead>
                   <TableHead>ประเภท</TableHead>
                   <TableHead>สี</TableHead>
                   <TableHead>BIB</TableHead>
@@ -507,36 +559,29 @@ export function InventoryApp() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.stock
-                  .filter(
-                    (i) =>
-                      !search ||
-                      [i.code, i.event, i.color, i.bib].some((v) =>
-                        String(v).toLowerCase().includes(search.toLowerCase()),
-                      ),
-                  )
-                  .map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-mono text-xs">
-                        {item.code}
-                      </TableCell>
-                      <TableCell>{item.event}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-2">
-                          <span
-                            className={`size-3 rounded-full ${colorDot[item.color]}`}
-                          />
-                          {item.color}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-lg font-semibold">
-                        {item.bib}
-                      </TableCell>
-                      <TableCell>
-                        {item.value.toLocaleString('th-TH')} บาท
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {stockFiltered.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-mono text-xs">
+                      {item.code}
+                    </TableCell>
+                    <TableCell>{stockGroup(item)}</TableCell>
+                    <TableCell>{item.event}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className={`size-3 rounded-full ${colorDot[item.color]}`}
+                        />
+                        {item.color}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-lg font-semibold">
+                      {item.bib}
+                    </TableCell>
+                    <TableCell>
+                      {item.value.toLocaleString('th-TH')} บาท
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </section>
@@ -654,7 +699,7 @@ export function InventoryApp() {
                     <NativeSelectOption value="">เลือก BIB</NativeSelectOption>
                     {data?.allocations.map((i) => (
                       <NativeSelectOption key={i.id} value={i.id}>
-                        {i.color} {i.bib_confirm} — {i.rider}
+                        {i.color} {i.bib_confirm} — {i.event}
                       </NativeSelectOption>
                     ))}
                   </NativeSelect>

@@ -41,6 +41,38 @@ const tefBibStock = tefBibRows.flatMap((bib) => [
     value: 0,
   })),
 ]);
+const tefOfficialStock = [
+  ['J_BLUE001', 1],
+  ['J_BLUE002', 5],
+  ['J_BLUE003', 1],
+  ['J_BLUE004', 1],
+  ['J_BLUE005', 10],
+  ['J_BLUE006', 1],
+  ['J_BLUE007', 8],
+  ['J_BLUE008', 10],
+  ['J_BLUE009', 1],
+  ['J_BLUE010', 8],
+  ['J_BLUE011', 5],
+  ['J_BLUE012', 5],
+  ['J_BLUE013', 4],
+  ['J_BLUE014', 5],
+  ['J_BLUE015', 10],
+].flatMap(([code, quantity]) =>
+  Array.from({ length: Number(quantity) }, (_, index) => ({
+    code: `${code}_${index + 1}`,
+    event: 'TEF BIB 16 Jun',
+    color: 'Blue',
+    bib: String(code),
+    value: 0,
+  })),
+);
+const tefPhotoStock = Array.from({ length: 5 }, (_, index) => ({
+  code: `Photo_EN_${index + 1}`,
+  event: 'TEF BIB 16 Jun',
+  color: 'Photo',
+  bib: 'Photo_EN',
+  value: 0,
+}));
 
 export const stockSeeds = [
   ...cen40Bibs.map((bib, index) => ({
@@ -58,6 +90,8 @@ export const stockSeeds = [
     value: 300,
   })),
   ...tefBibStock,
+  ...tefOfficialStock,
+  ...tefPhotoStock,
 ];
 
 const dpeRows: Array<[number, string, string, string]> = [
