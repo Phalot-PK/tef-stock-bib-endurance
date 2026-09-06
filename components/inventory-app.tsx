@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type SyntheticEvent } from 'react';
+import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -118,8 +119,10 @@ const actionDefinitions = [
 
 export function InventoryApp({
   initialStockOnly = false,
+  initialHistoryOnly = false,
 }: {
   initialStockOnly?: boolean;
+  initialHistoryOnly?: boolean;
 }) {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState('');
@@ -128,7 +131,7 @@ export function InventoryApp({
   const [color, setColor] = useState('ทั้งหมด');
   const [stockGroupFilter, setStockGroupFilter] = useState('ทั้งหมด');
   const [tab, setTab] = useState<'q3' | 'stock' | 'history'>(
-    initialStockOnly ? 'stock' : 'q3',
+    initialStockOnly ? 'stock' : initialHistoryOnly ? 'history' : 'q3',
   );
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -297,14 +300,22 @@ export function InventoryApp({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={initialStockOnly ? '/' : '/stock'}
+            <Link
+              href={initialStockOnly || initialHistoryOnly ? '/' : '/stock'}
               className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-sm font-semibold text-primary-foreground hover:bg-white/10"
             >
-              {initialStockOnly
+              {initialStockOnly || initialHistoryOnly
                 ? 'กลับหน้าหลัก / Home'
                 : 'สต๊อกตั้งต้น / Initial stock'}
-            </a>
+            </Link>
+            {!initialStockOnly && !initialHistoryOnly && (
+              <Link
+                href="/history"
+                className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-sm font-semibold text-primary-foreground hover:bg-white/10"
+              >
+                ประวัติรายการ / History
+              </Link>
+            )}
             <button
               disabled={!isAdmin}
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300"
@@ -408,7 +419,7 @@ export function InventoryApp({
           </div>
         </section>
 
-        {!initialStockOnly && (
+        {!initialStockOnly && !initialHistoryOnly && (
           <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex rounded-xl border bg-card p-1 shadow-sm">
               {(
@@ -462,7 +473,7 @@ export function InventoryApp({
           </section>
         )}
 
-        {!initialStockOnly && tab === 'q3' && (
+        {!initialStockOnly && !initialHistoryOnly && tab === 'q3' && (
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
               <div>
@@ -567,7 +578,7 @@ export function InventoryApp({
           </section>
         )}
 
-        {tab === 'stock' && (
+        {!initialHistoryOnly && tab === 'stock' && (
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
               <div>
