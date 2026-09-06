@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { allAllocationSeeds, stockSeeds } from '@/lib/seed-data';
+import { allocationSeeds, allAllocationSeeds, stockSeeds } from '@/lib/seed-data';
 
 export const runtime = 'edge';
 const GOD_ADMIN_EMAIL = 'phalot.k@tefthailand.com';
@@ -48,7 +48,7 @@ async function prepareDatabase() {
   const seedVersion = await db
     .prepare("SELECT value FROM app_meta WHERE key = 'seed_version'")
     .first<{ value: string }>();
-  if (seedVersion?.value !== 'dpe-aug-2026-v3') {
+  if (seedVersion?.value !== 'dpe-aug-2026-v4') {
     await db.batch(
       allAllocationSeeds.map((item) =>
         db
@@ -78,9 +78,41 @@ async function prepareDatabase() {
     );
     await db
       .prepare(
-        "INSERT INTO app_meta (key,value) VALUES ('seed_version','dpe-aug-2026-v3') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        "INSERT INTO app_meta (key,value) VALUES ('seed_version','dpe-aug-2026-v4') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
       )
       .run();
+
+    // Keep existing DPE allocation references aligned after correcting the
+    // duplicate CEN stock-code range. This updates references only; it does
+    // not remove allocations or transaction history.
+    await db.batch(
+      allocationSeeds
+        .filter((item) => item.event === 'DPE Aug 2026')
+        .map((item) => {
+          const stock = stockSeeds.find(
+            (candidate) =>
+              candidate.bib === item.bibConfirm &&
+              candidate.color.toLowerCase() === item.color.toLowerCase(),
+          ) ?? stockSeeds.find((candidate) => candidate.bib === item.bibConfirm);
+          const exact = stock && stock.color.toLowerCase() === item.color.toLowerCase();
+          return db
+            .prepare(
+              'UPDATE allocations SET stock_code = ?, stock_color = ?, match_status = ? WHERE event = ? AND bib_confirm = ? AND color = ?',
+            )
+            .bind(
+              stock?.code ?? '',
+              stock?.color ?? '',
+              exact
+                ? 'ตรงกับสต๊อกตั้งต้น'
+                : stock
+                  ? `สีต่างกัน (${stock.color}/${item.color})`
+                  : 'ไม่พบในสต๊อกตั้งต้น',
+              item.event,
+              item.bibConfirm,
+              item.color,
+            );
+        }),
+    );
   }
   const stockCount = await db
     .prepare('SELECT COUNT(*) AS count FROM stock_items')
@@ -99,7 +131,7 @@ async function prepareDatabase() {
   const stockSeedVersion = await db
     .prepare("SELECT value FROM app_meta WHERE key = 'stock_seed_version'")
     .first<{ value: string }>();
-  if (stockSeedVersion?.value !== 'tef-bib-16jun-v3') {
+  if (stockSeedVersion?.value !== 'tef-bib-16jun-v4') {
     const tefStockSeeds = stockSeeds.filter(
       (item) => item.event === 'TEF BIB 16 Jun',
     );
@@ -127,9 +159,23 @@ async function prepareDatabase() {
           .bind(item.event, item.color, item.bib, item.value, item.code),
       ),
     );
+
+    // Correct legacy prices and normalize all initial-stock prices to the
+    // requested 500 THB without deleting any stock rows.
+    await db.prepare('UPDATE stock_items SET value = 500').run();
+
+    // Repair the legacy duplicate CEN 40/CEN 80 code range in-place.
+    const cen40Seeds = stockSeeds.filter((item) => item.event === 'CEN 40 KM');
+    await db.batch(
+      cen40Seeds.map((item) =>
+        db
+          .prepare('UPDATE stock_items SET code = ?, value = ? WHERE event = ? AND bib = ?')
+          .bind(item.code, item.value, item.event, item.bib),
+      ),
+    );
     await db
       .prepare(
-        "INSERT INTO app_meta (key,value) VALUES ('stock_seed_version','tef-bib-16jun-v3') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        "INSERT INTO app_meta (key,value) VALUES ('stock_seed_version','tef-bib-16jun-v4') ON CONFLICT(key) DO UPDATE SET value = excluded.value",
       )
       .run();
   }

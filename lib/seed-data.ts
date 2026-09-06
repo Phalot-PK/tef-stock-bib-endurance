@@ -76,7 +76,8 @@ const tefPhotoStock = Array.from({ length: 5 }, (_, index) => ({
 
 export const stockSeeds = [
   ...cen40Bibs.map((bib, index) => ({
-    code: `TEF_EN_${String(index + 24).padStart(4, '0')}`,
+    // Keep CEN 40 codes after the CEN 80 range (0001–0025).
+    code: `TEF_EN_${String(index + cen80Bibs.length + 1).padStart(4, '0')}`,
     event: 'CEN 40 KM',
     color: 'Green',
     bib,
