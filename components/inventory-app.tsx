@@ -62,7 +62,7 @@ type Stock = {
   value: number;
 };
 type Payload = {
-  viewer: { email: string };
+  viewer: { email: string; role: 'admin' | 'user' };
   allocations: Allocation[];
   transactions: Transaction[];
   stock: Stock[];
@@ -81,6 +81,7 @@ const colorDot: Record<string, string> = {
   Green: 'bg-green-500',
   Blue: 'bg-blue-600',
   Photo: 'bg-violet-500',
+  'Green khaki': 'bg-lime-700',
 };
 const stockGroup = (item: Pick<Stock, 'code'>) =>
   item.code.startsWith('J_BLUE')
@@ -180,6 +181,7 @@ export function InventoryApp() {
         (stockGroupFilter === 'ทั้งหมด' || stockGroup(item) === stockGroupFilter),
     );
   }, [data, search, stockGroupFilter]);
+  const isAdmin = data?.viewer.role === 'admin';
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -281,17 +283,21 @@ export function InventoryApp() {
               </h1>
               {data?.viewer.email && (
                 <p className="mt-1 text-xs text-primary-foreground/70">
-                  Signed in / เข้าสู่ระบบ: {data.viewer.email}
+                  Signed in / เข้าสู่ระบบ: {data.viewer.email} ·{' '}
+                  {data.viewer.role === 'admin' ? 'God Admin' : 'View only'}
                 </p>
               )}
             </div>
           </div>
           <button
+            disabled={!isAdmin}
             className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300"
             onClick={() => setOpen(true)}
           >
             <ArrowLeftRight className="size-4" />
-            เบิก–จ่าย–คืน–ย้าย / Transactions
+            {isAdmin
+              ? 'เบิก–จ่าย–คืน–ย้าย / Transactions'
+              : 'View only / ดูอย่างเดียว'}
           </button>
         </div>
       </header>
@@ -516,6 +522,8 @@ export function InventoryApp() {
                     </TableCell>
                     <TableCell>
                       <button
+                        disabled={!isAdmin}
+                        title={isAdmin ? 'ทำรายการ' : 'เฉพาะ God Admin เท่านั้น'}
                         className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-secondary"
                         onClick={() => {
                           setForm((f) => ({
@@ -525,7 +533,7 @@ export function InventoryApp() {
                           setOpen(true);
                         }}
                       >
-                        ทำรายการ
+                        {isAdmin ? 'ทำรายการ' : 'ดูอย่างเดียว'}
                       </button>
                     </TableCell>
                   </TableRow>

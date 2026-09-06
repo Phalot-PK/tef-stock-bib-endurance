@@ -31,14 +31,14 @@ const tefBibStock = tefBibRows.flatMap((bib) => [
     event: 'TEF BIB 16 Jun',
     color: 'White',
     bib,
-    value: 0,
+    value: 500,
   },
   ...Array.from({ length: tefOrangeQuantity(bib) }, (_, index) => ({
     code: `CEI_${bib}_ORANGE_${index + 1}`,
     event: 'TEF BIB 16 Jun',
     color: 'Orange',
     bib,
-    value: 0,
+    value: 500,
   })),
 ]);
 const tefOfficialStock = [
@@ -63,15 +63,15 @@ const tefOfficialStock = [
     event: 'TEF BIB 16 Jun',
     color: 'Blue',
     bib: String(code),
-    value: 0,
+    value: 500,
   })),
 );
 const tefPhotoStock = Array.from({ length: 5 }, (_, index) => ({
   code: `Photo_EN_${index + 1}`,
   event: 'TEF BIB 16 Jun',
-  color: 'Photo',
+  color: 'Green khaki',
   bib: 'Photo_EN',
-  value: 0,
+  value: 500,
 }));
 
 export const stockSeeds = [
@@ -80,14 +80,14 @@ export const stockSeeds = [
     event: 'CEN 40 KM',
     color: 'Green',
     bib,
-    value: 300,
+    value: 500,
   })),
   ...cen80Bibs.map((bib, index) => ({
     code: `TEF_EN_${String(index + 1).padStart(4, '0')}`,
     event: 'CEN 80 KM',
     color: 'Orange',
     bib,
-    value: 300,
+    value: 500,
   })),
   ...tefBibStock,
   ...tefOfficialStock,

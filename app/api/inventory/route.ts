@@ -2,9 +2,14 @@ import { env } from 'cloudflare:workers';
 import { allocationSeeds, stockSeeds } from '@/lib/seed-data';
 
 export const runtime = 'edge';
+const GOD_ADMIN_EMAIL = 'phalot.k@tefthailand.com';
 
 function authenticatedEmail(request: Request) {
   return request.headers.get('oai-authenticated-user-email')?.trim() || '';
+}
+
+function viewerRole(email: string) {
+  return email.toLowerCase() === GOD_ADMIN_EMAIL ? 'admin' : 'user';
 }
 
 async function prepareDatabase() {
@@ -141,7 +146,7 @@ export async function GET(request: Request) {
     env.DB.prepare('SELECT * FROM stock_items ORDER BY event, bib').all(),
   ]);
   return Response.json({
-    viewer: { email },
+    viewer: { email, role: viewerRole(email) },
     allocations: allocations.results,
     transactions: transactions.results,
     stock: stock.results,
@@ -154,6 +159,11 @@ export async function POST(request: Request) {
     return Response.json(
       { error: 'กรุณาเข้าสู่ระบบด้วยบัญชี Gmail/Workspace ก่อนทำรายการ' },
       { status: 401 },
+    );
+  if (viewerRole(email) !== 'admin')
+    return Response.json(
+      { error: 'เฉพาะ God Admin เท่านั้นที่ทำรายการได้' },
+      { status: 403 },
     );
   await prepareDatabase();
   const body = (await request.json()) as {
