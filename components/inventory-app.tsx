@@ -170,9 +170,15 @@ export function InventoryApp({
     return data.allocations.filter(
       (item) =>
         (!q ||
-          [item.bib_confirm, item.bib_sign, item.event, item.color].some((v) =>
-            String(v).toLowerCase().includes(q),
-          )) &&
+          [
+            item.bib_confirm,
+            item.bib_sign,
+            item.event,
+            item.color,
+            item.stock_code,
+            item.stock_color,
+            item.current_location,
+          ].some((v) => String(v).toLowerCase().includes(q))) &&
         (location === 'ทั้งหมด' || item.current_location === location) &&
         (color === 'ทั้งหมด' || item.color === color),
     );
