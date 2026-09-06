@@ -32,7 +32,6 @@ type Allocation = {
   color: string;
   bib_confirm: number;
   bib_sign: number;
-  rider: string;
   club: string;
   initial_location: string;
   current_location: string;
@@ -53,7 +52,6 @@ type Transaction = {
   bib_confirm: number;
   color: string;
   event: string;
-  rider: string;
 };
 type Stock = {
   id: number;
@@ -162,7 +160,6 @@ export function InventoryApp() {
           [
             item.bib_confirm,
             item.bib_sign,
-            item.rider,
             item.club,
             item.event,
             item.color,

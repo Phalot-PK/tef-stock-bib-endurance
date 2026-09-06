@@ -131,9 +131,11 @@ export async function GET(request: Request) {
   await prepareDatabase();
   const [allocations, transactions, stock] = await Promise.all([
     env.DB.prepare(
-      'SELECT * FROM allocations ORDER BY event, bib_confirm',
+      `SELECT id,event,color,bib_confirm,bib_sign,club,initial_location,
+        current_location,current_status,stock_code,stock_color,match_status
+       FROM allocations ORDER BY event, bib_confirm`,
     ).all(),
-    env.DB.prepare(`SELECT t.*, a.bib_confirm, a.color, a.event, a.rider
+    env.DB.prepare(`SELECT t.*, a.bib_confirm, a.color, a.event
       FROM transactions t JOIN allocations a ON a.id = t.allocation_id
       ORDER BY t.created_at DESC, t.id DESC LIMIT 100`).all(),
     env.DB.prepare('SELECT * FROM stock_items ORDER BY event, bib').all(),
