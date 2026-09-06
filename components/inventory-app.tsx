@@ -116,14 +116,20 @@ const actionDefinitions = [
   },
 ] as const;
 
-export function InventoryApp() {
+export function InventoryApp({
+  initialStockOnly = false,
+}: {
+  initialStockOnly?: boolean;
+}) {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('ทั้งหมด');
   const [color, setColor] = useState('ทั้งหมด');
   const [stockGroupFilter, setStockGroupFilter] = useState('ทั้งหมด');
-  const [tab, setTab] = useState<'q3' | 'stock' | 'history'>('q3');
+  const [tab, setTab] = useState<'q3' | 'stock' | 'history'>(
+    initialStockOnly ? 'stock' : 'q3',
+  );
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -155,16 +161,13 @@ export function InventoryApp() {
   const filtered = useMemo(() => {
     if (!data) return [];
     const q = search.trim().toLowerCase();
+    if (!q) return [];
     return data.allocations.filter(
       (item) =>
         (!q ||
-          [
-            item.bib_confirm,
-            item.bib_sign,
-            item.club,
-            item.event,
-            item.color,
-          ].some((v) => String(v).toLowerCase().includes(q))) &&
+          [item.bib_confirm, item.bib_sign, item.event, item.color].some((v) =>
+            String(v).toLowerCase().includes(q),
+          )) &&
         (location === 'ทั้งหมด' || item.current_location === location) &&
         (color === 'ทั้งหมด' || item.color === color),
     );
@@ -228,8 +231,12 @@ export function InventoryApp() {
       <main className="grid min-h-screen place-items-center bg-background p-6">
         <section className="w-full max-w-lg rounded-2xl border bg-card p-7 text-center shadow-sm">
           <Shirt className="mx-auto mb-4 size-10 text-primary" />
-          <h1 className="text-xl font-semibold">เข้าสู่ระบบ / Sign in</h1>
-          <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+          <h1 className="text-xl font-semibold">
+            ยินดีต้อนรับเข้าสู่ TEF Stock BIB Endurance Inventory
+          </h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {error} / Please sign in with an approved account.
+          </p>
           <p className="mt-4 text-xs text-muted-foreground">
             ระบบนี้ใช้บัญชีที่ Sites อนุญาต เช่น Gmail/Workspace account / Use an allowed
             Gmail or Workspace account.
@@ -267,8 +274,8 @@ export function InventoryApp() {
   ];
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-white/10 bg-primary text-primary-foreground">
+    <main className="tef-theme min-h-screen text-foreground">
+      <header className="border-b border-white/15 bg-slate-950/25 text-primary-foreground backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-5 lg:px-8">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-white/12">
@@ -289,30 +296,38 @@ export function InventoryApp() {
               )}
             </div>
           </div>
-          <button
-            disabled={!isAdmin}
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300"
-            onClick={() => setOpen(true)}
-          >
-            <ArrowLeftRight className="size-4" />
-            {isAdmin
-              ? 'เบิก–จ่าย–คืน–ย้าย / Transactions'
-              : 'View only / ดูอย่างเดียว'}
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href={initialStockOnly ? '/' : '/stock'}
+              className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-sm font-semibold text-primary-foreground hover:bg-white/10"
+            >
+              {initialStockOnly
+                ? 'กลับหน้าหลัก / Home'
+                : 'สต๊อกตั้งต้น / Initial stock'}
+            </a>
+            <button
+              disabled={!isAdmin}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300"
+              onClick={() => setOpen(true)}
+            >
+              <ArrowLeftRight className="size-4" />
+              {isAdmin
+                ? 'เบิก–จ่าย–คืน–ย้าย / Transactions'
+                : 'View only / ดูอย่างเดียว'}
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-[1500px] px-5 py-7 lg:px-8">
         <section className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <p className="mb-1 text-sm font-medium text-muted-foreground">
-              DPE AUG 2026 · ข้อมูลล่าสุด
-            </p>
             <h2 className="text-3xl font-semibold tracking-tight">
-              เสื้ออยู่ที่ไหน เบอร์อะไร สีอะไร
+              ยินดีต้อนรับสู่ TEF Stock BIB Endurance Inventory
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Where is each shirt, which BIB number, and what color?
+              ค้นหาเสื้อจากหมายเลข BIB เพื่อดูตำแหน่งล่าสุดและสี / Search a BIB number to
+              see its latest location and color.
             </p>
           </div>
           <label className="flex min-w-[300px] items-center gap-2 rounded-xl border bg-card px-3 shadow-sm">
@@ -321,7 +336,7 @@ export function InventoryApp() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-11 w-full border-0 bg-transparent px-0 text-sm outline-none"
-              placeholder="ค้นหา BIB, สโมสร หรือรหัส"
+              placeholder="ค้นหา BIB หรือรหัสเสื้อ / Search BIB or code"
             />
           </label>
         </section>
@@ -393,64 +408,67 @@ export function InventoryApp() {
           </div>
         </section>
 
-        <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex rounded-xl border bg-card p-1 shadow-sm">
-            {(
-              [
-                ['q3', 'ตำแหน่งล่าสุด / Latest location'],
-                ['stock', 'สต๊อกตั้งต้น / Initial stock'],
-                ['history', 'ประวัติรายการ / History'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {tab === 'q3' && (
-            <div className="flex gap-2">
-              <NativeSelect
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              >
-                <NativeSelectOption>ทั้งหมด</NativeSelectOption>
-                <NativeSelectOption>Thai Polo</NativeSelectOption>
-                <NativeSelectOption>สำนักงาน/สมาคม</NativeSelectOption>
-              </NativeSelect>
-              <NativeSelect
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-              >
-                <NativeSelectOption>ทั้งหมด</NativeSelectOption>
-                {['Green', 'Orange'].map((c) => (
-                  <NativeSelectOption key={c}>{c}</NativeSelectOption>
-                ))}
-              </NativeSelect>
+        {!initialStockOnly && (
+          <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex rounded-xl border bg-card p-1 shadow-sm">
+              {(
+                [
+                  ['q3', 'ตำแหน่งล่าสุด / Latest location'],
+                  ['stock', 'สต๊อกตั้งต้น / Initial stock'],
+                  ['history', 'ประวัติรายการ / History'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
-          {tab === 'stock' && (
-            <NativeSelect
-              value={stockGroupFilter}
-              onChange={(e) => setStockGroupFilter(e.target.value)}
-            >
-              <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
-              <NativeSelectOption>เสื้อ BIB / Numbered BIB</NativeSelectOption>
-              <NativeSelectOption>เสื้อกรรมการ / Officials</NativeSelectOption>
-              <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
-            </NativeSelect>
-          )}
-        </section>
+            {tab === 'q3' && (
+              <div className="flex gap-2">
+                <NativeSelect
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                >
+                  <NativeSelectOption>ทั้งหมด</NativeSelectOption>
+                  <NativeSelectOption>Thai Polo</NativeSelectOption>
+                  <NativeSelectOption>สำนักงาน/สมาคม</NativeSelectOption>
+                </NativeSelect>
+                <NativeSelect
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                >
+                  <NativeSelectOption>ทั้งหมด</NativeSelectOption>
+                  {['Green', 'Orange'].map((c) => (
+                    <NativeSelectOption key={c}>{c}</NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
+            )}
+            {tab === 'stock' && (
+              <NativeSelect
+                value={stockGroupFilter}
+                onChange={(e) => setStockGroupFilter(e.target.value)}
+              >
+                <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
+                <NativeSelectOption>เสื้อ BIB / Numbered BIB</NativeSelectOption>
+                <NativeSelectOption>เสื้อกรรมการ / Officials</NativeSelectOption>
+                <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
+              </NativeSelect>
+            )}
+          </section>
+        )}
 
-        {tab === 'q3' && (
+        {!initialStockOnly && tab === 'q3' && (
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
               <div>
                 <h3 className="font-semibold">
-                  ตำแหน่งเสื้อ DPE Aug 2026 / Latest shirt locations
+                  รายการที่ใช้ล่าสุด · กีฬาระหว่างโรงเรียน กรมพลศึกษา ประจำปีการศึกษา 2569
+                  (DPE 2026)
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   พบ {filtered.length} รายการ
@@ -467,7 +485,6 @@ export function InventoryApp() {
                   <TableHead>BIB</TableHead>
                   <TableHead>สี</TableHead>
                   <TableHead>รายการ</TableHead>
-                  <TableHead>สโมสร / Club</TableHead>
                   <TableHead>ตำแหน่งปัจจุบัน</TableHead>
                   <TableHead>สถานะ</TableHead>
                   <TableHead>เทียบสต๊อก</TableHead>
@@ -475,69 +492,76 @@ export function InventoryApp() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <p className="text-lg font-semibold">
-                        {item.bib_confirm}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className={`size-3 rounded-full ${colorDot[item.color]}`}
-                        />
-                        {item.color}
-                      </span>
-                    </TableCell>
-                    <TableCell>{item.event}</TableCell>
-                    <TableCell>
-                      <p className="max-w-[260px] truncate text-xs text-muted-foreground">
-                        {item.club}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${locationClass(item.current_location)}`}
-                      >
-                        {item.current_location}
-                      </span>
-                    </TableCell>
-                    <TableCell>{item.current_status}</TableCell>
-                    <TableCell>
-                      <p
-                        className={
-                          item.match_status === 'ตรงกับสต๊อกตั้งต้น'
-                            ? 'text-emerald-700'
-                            : 'text-amber-700'
-                        }
-                      >
-                        {item.match_status}
-                      </p>
-                      {item.stock_code && (
-                        <p className="text-xs text-muted-foreground">
-                          {item.stock_code}
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <button
-                        disabled={!isAdmin}
-                        title={isAdmin ? 'ทำรายการ' : 'เฉพาะ God Admin เท่านั้น'}
-                        className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-secondary"
-                        onClick={() => {
-                          setForm((f) => ({
-                            ...f,
-                            allocationId: String(item.id),
-                          }));
-                          setOpen(true);
-                        }}
-                      >
-                        {isAdmin ? 'ทำรายการ' : 'ดูอย่างเดียว'}
-                      </button>
+                {!search.trim() ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="py-12 text-center text-muted-foreground"
+                    >
+                      พิมพ์หมายเลข BIB เพื่อค้นหาตำแหน่งล่าสุด / Enter a BIB number to
+                      search.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filtered.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <p className="text-lg font-semibold">
+                          {item.bib_confirm}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-2">
+                          <span
+                            className={`size-3 rounded-full ${colorDot[item.color]}`}
+                          />
+                          {item.color}
+                        </span>
+                      </TableCell>
+                      <TableCell>{item.event}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${locationClass(item.current_location)}`}
+                        >
+                          {item.current_location}
+                        </span>
+                      </TableCell>
+                      <TableCell>{item.current_status}</TableCell>
+                      <TableCell>
+                        <p
+                          className={
+                            item.match_status === 'ตรงกับสต๊อกตั้งต้น'
+                              ? 'text-emerald-700'
+                              : 'text-amber-700'
+                          }
+                        >
+                          {item.match_status}
+                        </p>
+                        {item.stock_code && (
+                          <p className="text-xs text-muted-foreground">
+                            {item.stock_code}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <button
+                          disabled={!isAdmin}
+                          title={isAdmin ? 'ทำรายการ' : 'เฉพาะ God Admin เท่านั้น'}
+                          className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-secondary"
+                          onClick={() => {
+                            setForm((f) => ({
+                              ...f,
+                              allocationId: String(item.id),
+                            }));
+                            setOpen(true);
+                          }}
+                        >
+                          {isAdmin ? 'ทำรายการ' : 'ดูอย่างเดียว'}
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </section>
@@ -545,12 +569,29 @@ export function InventoryApp() {
 
         {tab === 'stock' && (
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-            <div className="border-b px-5 py-4">
-              <h3 className="font-semibold">สต๊อกตั้งต้น / Initial stock</h3>
-              <p className="text-sm text-muted-foreground">
-                จาก En เสื้อ.xlsx และ TEF BIB 16jun.xlsx ·{' '}
-                {data?.stock.length ?? 0} รายการ
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+              <div>
+                <h3 className="font-semibold">สต๊อกตั้งต้น / Initial stock</h3>
+                <p className="text-sm text-muted-foreground">
+                  จาก En เสื้อ.xlsx และ TEF BIB 16jun.xlsx ·{' '}
+                  {data?.stock.length ?? 0} รายการ
+                </p>
+              </div>
+              {initialStockOnly && (
+                <NativeSelect
+                  value={stockGroupFilter}
+                  onChange={(e) => setStockGroupFilter(e.target.value)}
+                >
+                  <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
+                  <NativeSelectOption>
+                    เสื้อ BIB / Numbered BIB
+                  </NativeSelectOption>
+                  <NativeSelectOption>
+                    เสื้อกรรมการ / Officials
+                  </NativeSelectOption>
+                  <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
+                </NativeSelect>
+              )}
             </div>
             <Table>
               <TableHeader>
@@ -592,7 +633,7 @@ export function InventoryApp() {
           </section>
         )}
 
-        {tab === 'history' && (
+        {!initialStockOnly && tab === 'history' && (
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="border-b px-5 py-4">
               <h3 className="flex items-center gap-2 font-semibold">
