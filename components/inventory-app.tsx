@@ -130,9 +130,11 @@ export function InventoryApp({
   const [location, setLocation] = useState('ทั้งหมด');
   const [color, setColor] = useState('ทั้งหมด');
   const [stockGroupFilter, setStockGroupFilter] = useState('ทั้งหมด');
-  const [tab, setTab] = useState<'q3' | 'stock' | 'history'>(
-    initialStockOnly ? 'stock' : initialHistoryOnly ? 'history' : 'q3',
-  );
+  const tab: 'q3' | 'stock' | 'history' = initialStockOnly
+    ? 'stock'
+    : initialHistoryOnly
+      ? 'history'
+      : 'q3';
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -420,56 +422,38 @@ export function InventoryApp({
         </section>
 
         {!initialStockOnly && !initialHistoryOnly && (
-          <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex rounded-xl border bg-card p-1 shadow-sm">
-              {(
-                [
-                  ['q3', 'ตำแหน่งล่าสุด / Latest location'],
-                  ['stock', 'สต๊อกตั้งต้น / Initial stock'],
-                  ['history', 'ประวัติรายการ / History'],
-                ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setTab(key)}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
-                >
-                  {label}
-                </button>
+          <section className="mb-5 flex flex-wrap items-center justify-end gap-2">
+            <NativeSelect
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            >
+              <NativeSelectOption>ทั้งหมด</NativeSelectOption>
+              <NativeSelectOption>Thai Polo</NativeSelectOption>
+              <NativeSelectOption>สำนักงาน/สมาคม</NativeSelectOption>
+            </NativeSelect>
+            <NativeSelect
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+            >
+              <NativeSelectOption>ทั้งหมด</NativeSelectOption>
+              {['Green', 'Orange'].map((c) => (
+                <NativeSelectOption key={c}>{c}</NativeSelectOption>
               ))}
-            </div>
-            {tab === 'q3' && (
-              <div className="flex gap-2">
-                <NativeSelect
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                >
-                  <NativeSelectOption>ทั้งหมด</NativeSelectOption>
-                  <NativeSelectOption>Thai Polo</NativeSelectOption>
-                  <NativeSelectOption>สำนักงาน/สมาคม</NativeSelectOption>
-                </NativeSelect>
-                <NativeSelect
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                >
-                  <NativeSelectOption>ทั้งหมด</NativeSelectOption>
-                  {['Green', 'Orange'].map((c) => (
-                    <NativeSelectOption key={c}>{c}</NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-            )}
-            {tab === 'stock' && (
-              <NativeSelect
-                value={stockGroupFilter}
-                onChange={(e) => setStockGroupFilter(e.target.value)}
-              >
-                <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
-                <NativeSelectOption>เสื้อ BIB / Numbered BIB</NativeSelectOption>
-                <NativeSelectOption>เสื้อกรรมการ / Officials</NativeSelectOption>
-                <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
-              </NativeSelect>
-            )}
+            </NativeSelect>
+          </section>
+        )}
+
+        {initialStockOnly && (
+          <section className="mb-5 flex flex-wrap items-center justify-end gap-2">
+            <NativeSelect
+              value={stockGroupFilter}
+              onChange={(e) => setStockGroupFilter(e.target.value)}
+            >
+              <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
+              <NativeSelectOption>เสื้อ BIB / Numbered BIB</NativeSelectOption>
+              <NativeSelectOption>เสื้อกรรมการ / Officials</NativeSelectOption>
+              <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
+            </NativeSelect>
           </section>
         )}
 
@@ -588,21 +572,6 @@ export function InventoryApp({
                   {data?.stock.length ?? 0} รายการ
                 </p>
               </div>
-              {initialStockOnly && (
-                <NativeSelect
-                  value={stockGroupFilter}
-                  onChange={(e) => setStockGroupFilter(e.target.value)}
-                >
-                  <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
-                  <NativeSelectOption>
-                    เสื้อ BIB / Numbered BIB
-                  </NativeSelectOption>
-                  <NativeSelectOption>
-                    เสื้อกรรมการ / Officials
-                  </NativeSelectOption>
-                  <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
-                </NativeSelect>
-              )}
             </div>
             <Table>
               <TableHeader>
