@@ -498,7 +498,9 @@ export function InventoryApp({
                   (DPE 2026)
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  พบ {filtered.length} รายการ
+                  {search.trim()
+                    ? `พบ ${filtered.length} รายการ`
+                    : 'กรุณาค้นหา BIB เพื่อแสดงรายการ'}
                 </p>
               </div>
               <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">
@@ -716,7 +718,7 @@ export function InventoryApp({
             <li>
               • BIB 27 is Green in the latest image but Orange in initial stock
             </li>
-            <li>• TEF_EN_0024 is duplicated in the initial stock</li>
+            <li>• Initial-stock codes are unique and each item is valued at 500 THB</li>
           </ul>
         </div>
       </div>
