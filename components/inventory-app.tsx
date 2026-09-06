@@ -90,6 +90,28 @@ const stockGroup = (item: Pick<Stock, 'code'>) =>
     : item.code.startsWith('Photo')
       ? 'เสื้อ Photo / Photo'
       : 'เสื้อ BIB / Numbered BIB';
+const printedRole = (code: string) => {
+  const baseCode = code.match(/^(J_BLUE\d{3}|Photo_EN)/)?.[1] ?? '';
+  const roles: Record<string, string> = {
+    J_BLUE001: 'President Ground Jury',
+    J_BLUE002: 'Ground Jury',
+    J_BLUE003: 'Technical Delegate',
+    J_BLUE004: 'Chief Steward',
+    J_BLUE005: 'Steward',
+    J_BLUE006: 'Commission VET President',
+    J_BLUE007: 'Commission VET member',
+    J_BLUE008: 'Assistant VET',
+    J_BLUE009: 'Treating VET President',
+    J_BLUE010: 'Treating VET',
+    J_BLUE011: 'VSM',
+    J_BLUE012: 'TEF',
+    J_BLUE013: 'OC',
+    J_BLUE014: 'Track Master',
+    J_BLUE015: 'Official',
+    Photo_EN: 'Photographer',
+  };
+  return roles[baseCode] ?? '';
+};
 const actionDefinitions = [
   {
     value: 'เบิก',
@@ -189,9 +211,13 @@ export function InventoryApp({
     return data.stock.filter(
       (item) =>
         (!q ||
-          [item.code, item.event, item.color, item.bib].some((v) =>
-            String(v).toLowerCase().includes(q),
-          )) &&
+          [
+            item.code,
+            item.event,
+            item.color,
+            item.bib,
+            printedRole(item.code),
+          ].some((v) => String(v).toLowerCase().includes(q))) &&
         (stockGroupFilter === 'ทั้งหมด' || stockGroup(item) === stockGroupFilter),
     );
   }, [data, search, stockGroupFilter]);
@@ -587,6 +613,7 @@ export function InventoryApp({
                   <TableHead>ประเภท</TableHead>
                   <TableHead>สี</TableHead>
                   <TableHead>BIB</TableHead>
+                  <TableHead>ชื่อ/ตำแหน่งบนเสื้อ / Printed role</TableHead>
                   <TableHead>มูลค่า</TableHead>
                 </TableRow>
               </TableHeader>
@@ -609,6 +636,7 @@ export function InventoryApp({
                     <TableCell className="text-lg font-semibold">
                       {item.bib}
                     </TableCell>
+                    <TableCell>{printedRole(item.code) || '—'}</TableCell>
                     <TableCell>
                       {item.value.toLocaleString('th-TH')} บาท
                     </TableCell>
