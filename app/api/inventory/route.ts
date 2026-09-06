@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { allocationSeeds, allAllocationSeeds, stockSeeds } from '@/lib/seed-data';
 
 export const runtime = 'edge';
+// Database repair migrations are applied on the first authenticated request.
 const GOD_ADMIN_EMAIL = 'phalot.k@tefthailand.com';
 
 function authenticatedEmail(request: Request) {
