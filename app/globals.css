@@ -51,31 +51,31 @@
 body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   min-height: 100vh;
-  background: linear-gradient(135deg, #5b1530 0%, #28235e 46%, #0f1d4d 100%);
+  background: #f4f6f8;
 }
 
 .tef-theme {
-  background: linear-gradient(135deg, #5b1530 0%, #28235e 46%, #0f1d4d 100%);
+  background: #f4f6f8;
 }
 
 :root {
-  --background: #171a46;
-  --foreground: #f8fafc;
-  --card: rgba(255, 255, 255, 0.1);
-  --card-foreground: #f8fafc;
+  --background: #f4f6f8;
+  --foreground: #0f1d36;
+  --card: #ffffff;
+  --card-foreground: #0f1d36;
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --primary: #17324d;
   --primary-foreground: #ffffff;
-  --secondary: rgba(255, 255, 255, 0.12);
-  --secondary-foreground: #f8fafc;
-  --muted: rgba(255, 255, 255, 0.1);
-  --muted-foreground: #c9cde0;
+  --secondary: #edf2f7;
+  --secondary-foreground: #0f1d36;
+  --muted: #edf2f7;
+  --muted-foreground: #64748b;
   --accent: #e7b765;
   --accent-foreground: #171a46;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: rgba(255, 255, 255, 0.18);
-  --input: rgba(255, 255, 255, 0.25);
+  --border: #d7dee8;
+  --input: #cbd5e1;
   --ring: #8f8ee7;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);

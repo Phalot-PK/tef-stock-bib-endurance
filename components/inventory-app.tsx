@@ -2,18 +2,6 @@
 
 import { useEffect, useMemo, useState, type SyntheticEvent } from 'react';
 import Link from 'next/link';
-import type { LucideIcon } from 'lucide-react';
-import {
-  AlertTriangle,
-  Archive,
-  ArrowLeftRight,
-  Building2,
-  History,
-  Loader2,
-  MapPin,
-  Search,
-  Shirt,
-} from 'lucide-react';
 import {
   NativeSelect,
   NativeSelectOption,
@@ -63,7 +51,15 @@ type Stock = {
   value: number;
 };
 type Payload = {
-  viewer: { email: string; role: 'admin' | 'user' };
+  viewer: {
+    email: string;
+    name: string;
+    role: 'owner' | 'secret-admin' | 'manager' | 'viewer';
+    displayRole: 'ผู้ใช้งานทั่วไป' | 'ผู้ใช้งานระดับสูง';
+    canEnterAdminMode: boolean;
+    canComment: boolean;
+    adminModeAvailable: boolean;
+  };
   allocations: Allocation[];
   transactions: Transaction[];
   stock: Stock[];
@@ -158,6 +154,9 @@ export function InventoryApp({
       ? 'history'
       : 'q3';
   const [open, setOpen] = useState(false);
+  const [adminGateOpen, setAdminGateOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminMode, setAdminMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({
@@ -218,10 +217,11 @@ export function InventoryApp({
             item.bib,
             printedRole(item.code),
           ].some((v) => String(v).toLowerCase().includes(q))) &&
-        (stockGroupFilter === 'ทั้งหมด' || stockGroup(item) === stockGroupFilter),
+        (stockGroupFilter === 'ทั้งหมด' || stockGroupFilter === 'ทั้งหมด / All groups' || stockGroup(item) === stockGroupFilter),
     );
   }, [data, search, stockGroupFilter]);
-  const isAdmin = data?.viewer.role === 'admin';
+  const isAdmin = Boolean(data?.viewer.canEnterAdminMode && adminMode);
+  const canEnterAdmin = Boolean(data?.viewer.canEnterAdminMode);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -233,6 +233,7 @@ export function InventoryApp({
       body: JSON.stringify({
         ...form,
         allocationId: Number(form.allocationId),
+        adminPassword,
       }),
     });
     const result = (await response.json()) as { error?: string };
@@ -258,7 +259,6 @@ export function InventoryApp({
     return (
       <div className="grid min-h-screen place-items-center bg-background">
         <div className="flex items-center gap-3 text-muted-foreground">
-          <Loader2 className="size-5 animate-spin" />
           กำลังเตรียมข้อมูลสต๊อก
         </div>
       </div>
@@ -267,7 +267,6 @@ export function InventoryApp({
     return (
       <main className="grid min-h-screen place-items-center bg-background p-6">
         <section className="w-full max-w-lg rounded-2xl border bg-card p-7 text-center shadow-sm">
-          <Shirt className="mx-auto mb-4 size-10 text-primary" />
           <h1 className="text-xl font-semibold">
             ยินดีต้อนรับเข้าสู่ TEF Stock BIB Endurance Inventory
           </h1>
@@ -282,53 +281,46 @@ export function InventoryApp({
       </main>
     );
 
-  const thaiPolo =
-    data?.allocations.filter((i) => i.current_location === 'Thai Polo')
+  const numberedBibCount =
+    data?.stock.filter((item) => stockGroup(item) === 'เสื้อ BIB / Numbered BIB')
       .length ?? 0;
-  const office =
-    data?.allocations.filter((i) => i.current_location === 'สำนักงาน/สมาคม')
+  const officialsCount =
+    data?.stock.filter((item) => stockGroup(item) === 'เสื้อกรรมการ / Officials')
       .length ?? 0;
-  const summaryCards: Array<{
-    Icon: LucideIcon;
-    label: string;
-    value: number;
-    unit: string;
-  }> = [
+  const photoCount =
+    data?.stock.filter((item) => stockGroup(item) === 'เสื้อ Photo / Photo')
+      .length ?? 0;
+  const summaryCards: Array<{ label: string; value: number; unit: string }> = [
     {
-      Icon: Archive,
-      label: 'สต๊อกตั้งต้น',
-      value: data?.stock.length ?? 63,
+      label: 'Numbered BIB',
+      value: numberedBibCount,
       unit: 'ตัว',
     },
     {
-      Icon: Shirt,
-      label: 'รายการ DPE ล่าสุด',
-      value: data?.allocations.length ?? 44,
+      label: 'Officials',
+      value: officialsCount,
       unit: 'ตัว',
     },
-    { Icon: MapPin, label: 'Thai Polo', value: thaiPolo, unit: 'ตัว' },
-    { Icon: Building2, label: 'สำนักงาน/สมาคม', value: office, unit: 'ตัว' },
+    { label: 'Photo Shirts', value: photoCount, unit: 'ตัว' },
+    { label: 'ทั้งหมด / Total', value: data?.stock.length ?? 0, unit: 'ตัว' },
   ];
 
   return (
     <main className="tef-theme min-h-screen text-foreground">
-      <header className="border-b border-white/15 bg-slate-950/25 text-primary-foreground backdrop-blur-xl">
+      <header className="border-b border-white/15 bg-[#061f44] text-primary-foreground">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-5 lg:px-8">
-          <div className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-white/12">
-              <Shirt className="size-6" />
-            </span>
+          <div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[.18em] text-amber-300">
-                Thai Equestrian Federation
-              </p>
               <h1 className="text-xl font-semibold tracking-tight">
-                ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory
+                TEF Stock BIB Endurance Inventory
               </h1>
+              <p className="text-sm font-semibold text-amber-300">
+                ระบบจัดการสต๊อก BIB ประเภทความทนทาน
+              </p>
               {data?.viewer.email && (
                 <p className="mt-1 text-xs text-primary-foreground/70">
-                  Signed in / เข้าสู่ระบบ: {data.viewer.email} ·{' '}
-                  {data.viewer.role === 'admin' ? 'God Admin' : 'View only'}
+                  {data.viewer.name} · {data.viewer.email} · {data.viewer.displayRole}
+                  {adminMode ? ' · Admin mode' : ''}
                 </p>
               )}
             </div>
@@ -351,14 +343,15 @@ export function InventoryApp({
               </Link>
             )}
             <button
-              disabled={!isAdmin}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300"
-              onClick={() => setOpen(true)}
+              disabled={!canEnterAdmin}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => (adminMode ? setOpen(true) : setAdminGateOpen(true))}
             >
-              <ArrowLeftRight className="size-4" />
-              {isAdmin
+              {adminMode
                 ? 'เบิก–จ่าย–คืน–ย้าย / Transactions'
-                : 'View only / ดูอย่างเดียว'}
+                : canEnterAdmin
+                  ? 'เข้าสู่โหมด Admin / Admin mode'
+                  : 'View only / ดูอย่างเดียว'}
             </button>
           </div>
         </div>
@@ -375,8 +368,10 @@ export function InventoryApp({
               see its latest location and color.
             </p>
           </div>
-          <label className="flex min-w-[300px] items-center gap-2 rounded-xl border bg-card px-3 shadow-sm">
-            <Search className="size-4 text-muted-foreground" />
+          <label
+            aria-label="ค้นหา BIB หรือรหัสเสื้อ / Search BIB or code"
+            className="flex min-w-[300px] items-center gap-2 rounded-xl border bg-card px-3 shadow-sm"
+          >
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -404,7 +399,7 @@ export function InventoryApp({
         )}
 
         <section className="mb-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {summaryCards.map(({ Icon, label, value, unit }) => (
+          {summaryCards.map(({ label, value, unit }) => (
             <article
               key={label}
               className="rounded-2xl border bg-card p-5 shadow-sm"
@@ -412,9 +407,6 @@ export function InventoryApp({
               <div className="mb-5 flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">
                   {label}
-                </span>
-                <span className="grid size-9 place-items-center rounded-xl bg-secondary">
-                  <Icon className="size-4" />
                 </span>
               </div>
               <p className="text-3xl font-semibold">
@@ -481,7 +473,7 @@ export function InventoryApp({
               value={stockGroupFilter}
               onChange={(e) => setStockGroupFilter(e.target.value)}
             >
-              <NativeSelectOption>ทั้งหมด / All groups</NativeSelectOption>
+              <NativeSelectOption value="ทั้งหมด">ทั้งหมด / All groups</NativeSelectOption>
               <NativeSelectOption>เสื้อ BIB / Numbered BIB</NativeSelectOption>
               <NativeSelectOption>เสื้อกรรมการ / Officials</NativeSelectOption>
               <NativeSelectOption>เสื้อ Photo / Photo</NativeSelectOption>
@@ -504,7 +496,6 @@ export function InventoryApp({
                 </p>
               </div>
               <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">
-                <AlertTriangle className="size-3.5" />
                 BIB 27 สีต่างจากสต๊อกตั้งต้น
               </span>
             </div>
@@ -652,8 +643,7 @@ export function InventoryApp({
         {!initialStockOnly && tab === 'history' && (
           <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="border-b px-5 py-4">
-              <h3 className="flex items-center gap-2 font-semibold">
-                <History className="size-4" />
+              <h3 className="font-semibold">
                 ประวัติเบิก–จ่าย–คืน–ย้าย / Transaction history
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -696,7 +686,6 @@ export function InventoryApp({
             ) : (
               <div className="grid min-h-56 place-items-center text-center text-muted-foreground">
                 <div>
-                  <History className="mx-auto mb-3 size-8 opacity-50" />
                   <p>ยังไม่มีประวัติรายการ / No transactions yet</p>
                   <p className="text-sm">
                     เริ่มจากปุ่ม “เบิก–จ่าย–คืน–ย้าย / Transactions”
@@ -708,8 +697,7 @@ export function InventoryApp({
         )}
 
         <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
-          <h3 className="mb-2 flex items-center gap-2 font-semibold">
-            <AlertTriangle className="size-4" />
+          <h3 className="mb-2 font-semibold">
             ข้อมูลที่ควรทราบ
           </h3>
           <ul className="grid gap-1.5 md:grid-cols-2">
@@ -722,6 +710,82 @@ export function InventoryApp({
           </ul>
         </div>
       </div>
+
+      {adminGateOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center p-4">
+          <button
+            type="button"
+            aria-label="ปิดหน้าต่างโหมด Admin"
+            className="absolute inset-0 bg-slate-950/25 backdrop-blur-sm"
+            onClick={() => setAdminGateOpen(false)}
+          />
+          <dialog
+            open
+            aria-labelledby="admin-mode-title"
+            className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl"
+          >
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setMessage('');
+                const response = await fetch('/api/inventory', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    intent: 'enter-admin',
+                    adminPassword,
+                  }),
+                });
+                const result = (await response.json()) as { error?: string };
+                if (!response.ok) {
+                  setMessage(result.error || 'เข้าสู่โหมด Admin ไม่สำเร็จ');
+                  return;
+                }
+                setAdminMode(true);
+                setAdminGateOpen(false);
+                setMessage('เข้าสู่โหมด Admin แล้ว');
+              }}
+              className="grid gap-4"
+            >
+              <div>
+                <h2 id="admin-mode-title" className="text-lg font-semibold">
+                  เข้าสู่โหมด Admin / Admin mode
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  ยืนยันรหัสผ่านฝั่ง API ก่อนทำรายการสต๊อก
+                </p>
+              </div>
+              <label className="grid gap-1.5 text-sm font-medium">
+                รหัสโหมด Admin
+                <input
+                  required
+                  type="password"
+                  value={adminPassword}
+                  onChange={(event) => setAdminPassword(event.target.value)}
+                  className="h-10 rounded-lg border border-slate-300 px-3 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-300"
+                  autoComplete="current-password"
+                />
+              </label>
+              {message && <p className="text-sm text-red-700">{message}</p>}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium"
+                  onClick={() => setAdminGateOpen(false)}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  ยืนยัน
+                </button>
+              </div>
+            </form>
+          </dialog>
+        </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center p-4">
@@ -835,7 +899,6 @@ export function InventoryApp({
                   type="submit"
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                 >
-                  {saving && <Loader2 className="size-4 animate-spin" />}
                   บันทึกรายการ
                 </button>
               </div>

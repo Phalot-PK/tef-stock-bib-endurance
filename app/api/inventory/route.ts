@@ -1,16 +1,26 @@
 import { env } from 'cloudflare:workers';
 import { allocationSeeds, allAllocationSeeds, stockSeeds } from '@/lib/seed-data';
+import { getAllowedUser } from '@/lib/access';
 
 export const runtime = 'edge';
 // Database repair migrations are applied on the first authenticated request.
-const GOD_ADMIN_EMAIL = 'phalot.k@tefthailand.com';
-
 function authenticatedEmail(request: Request) {
   return request.headers.get('oai-authenticated-user-email')?.trim() || '';
 }
 
-function viewerRole(email: string) {
-  return email.toLowerCase() === GOD_ADMIN_EMAIL ? 'admin' : 'user';
+function authenticatedUser(request: Request) {
+  return getAllowedUser(authenticatedEmail(request));
+}
+
+async function isAdminPasswordValid(password: string) {
+  const configured = [
+    (env as unknown as { ADMIN_MODE_PASSWORD_PRIMARY?: string })
+      .ADMIN_MODE_PASSWORD_PRIMARY,
+    (env as unknown as { ADMIN_MODE_PASSWORD_SECONDARY?: string })
+      .ADMIN_MODE_PASSWORD_SECONDARY,
+  ].filter((value): value is string => Boolean(value));
+  if (!password || configured.length === 0) return false;
+  return configured.some((candidate) => candidate === password);
 }
 
 async function prepareDatabase() {
@@ -184,11 +194,11 @@ async function prepareDatabase() {
 }
 
 export async function GET(request: Request) {
-  const email = authenticatedEmail(request);
-  if (!email)
+  const viewer = authenticatedUser(request);
+  if (!viewer)
     return Response.json(
-      { error: 'กรุณาเข้าสู่ระบบด้วยบัญชี Gmail/Workspace ก่อนใช้งาน' },
-      { status: 401 },
+      { error: 'บัญชีนี้ยังไม่ได้รับอนุญาตให้ใช้ระบบ' },
+      { status: 403 },
     );
   await prepareDatabase();
   const [allocations, transactions, stock] = await Promise.all([
@@ -203,7 +213,22 @@ export async function GET(request: Request) {
     env.DB.prepare('SELECT * FROM stock_items ORDER BY event, bib').all(),
   ]);
   return Response.json({
-    viewer: { email, role: viewerRole(email) },
+    viewer: {
+      email: viewer.email,
+      name: viewer.name,
+      // Keep the secondary Admin account visually classified as a general user;
+      // the capability is enforced server-side and is not advertised in the UI.
+      role: viewer.role === 'secret-admin' ? 'viewer' : viewer.role,
+      displayRole: viewer.displayRole,
+      canEnterAdminMode: viewer.canEnterAdminMode,
+      canComment: viewer.canComment,
+      adminModeAvailable: Boolean(
+        (env as unknown as { ADMIN_MODE_PASSWORD_PRIMARY?: string })
+          .ADMIN_MODE_PASSWORD_PRIMARY ||
+          (env as unknown as { ADMIN_MODE_PASSWORD_SECONDARY?: string })
+            .ADMIN_MODE_PASSWORD_SECONDARY,
+      ),
+    },
     allocations: allocations.results,
     transactions: transactions.results,
     stock: stock.results,
@@ -211,25 +236,33 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const email = authenticatedEmail(request);
-  if (!email)
+  const viewer = authenticatedUser(request);
+  if (!viewer)
     return Response.json(
-      { error: 'กรุณาเข้าสู่ระบบด้วยบัญชี Gmail/Workspace ก่อนทำรายการ' },
-      { status: 401 },
-    );
-  if (viewerRole(email) !== 'admin')
-    return Response.json(
-      { error: 'เฉพาะ God Admin เท่านั้นที่ทำรายการได้' },
+      { error: 'บัญชีนี้ยังไม่ได้รับอนุญาตให้ทำรายการ' },
       { status: 403 },
     );
-  await prepareDatabase();
+  if (!viewer.canEnterAdminMode)
+    return Response.json(
+      { error: 'บัญชีนี้ไม่มีสิทธิ์เข้าสู่โหมด Admin' },
+      { status: 403 },
+    );
   const body = (await request.json()) as {
+    intent?: 'enter-admin' | 'transaction';
     allocationId?: number;
     action?: string;
     person?: string;
     destination?: string;
     note?: string;
+    adminPassword?: string;
   };
+  if (!(await isAdminPasswordValid(body.adminPassword ?? '')))
+    return Response.json(
+      { error: 'รหัสโหมด Admin ไม่ถูกต้อง หรือยังไม่ได้ตั้งค่ารหัสใน API' },
+      { status: 403 },
+    );
+  if (body.intent === 'enter-admin') return Response.json({ ok: true });
+  await prepareDatabase();
   if (!body.allocationId || !body.action || !body.person?.trim())
     return Response.json({ error: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบ' }, { status: 400 });
   if (!['เบิก', 'จ่าย', 'คืน', 'ย้าย'].includes(body.action))
