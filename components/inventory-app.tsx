@@ -734,25 +734,25 @@ export function InventoryApp({
           <dialog
             open
             aria-labelledby="transaction-title"
-            className="relative z-10 w-full max-w-lg rounded-2xl bg-white p-0 text-foreground shadow-2xl"
+            className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl"
           >
             <form onSubmit={submit} className="p-5">
               <div className="mb-5">
-                <h2 id="transaction-title" className="text-lg font-semibold">
+                <h2 id="transaction-title" className="text-lg font-semibold text-slate-900">
                   ทำรายการเสื้อ BIB / BIB transaction
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-slate-600">
                   บันทึกการเบิก จ่าย คืน หรือย้ายสถานที่ / Record each withdrawal, issue,
                   return, or transfer.
                 </p>
               </div>
               <div className="grid gap-4">
-                <div className="grid gap-1.5 text-sm font-medium">
+                <div className="grid gap-1.5 text-sm font-medium text-slate-800">
                   <label htmlFor="allocation-select">เสื้อ BIB</label>
                   <NativeSelect
                     id="allocation-select"
                     required
-                    className="w-full"
+                    className="w-full border-slate-300 bg-white text-slate-900"
                     value={form.allocationId}
                     onChange={(e) =>
                       setForm({ ...form, allocationId: e.target.value })
@@ -766,11 +766,11 @@ export function InventoryApp({
                     ))}
                   </NativeSelect>
                 </div>
-                <div className="grid gap-1.5 text-sm font-medium">
+                <div className="grid gap-1.5 text-sm font-medium text-slate-800">
                   <label htmlFor="action-select">ประเภทรายการ</label>
                   <NativeSelect
                     id="action-select"
-                    className="w-full"
+                    className="w-full border-slate-300 bg-white text-slate-900"
                     value={form.action}
                     onChange={(e) =>
                       setForm({ ...form, action: e.target.value })
@@ -783,7 +783,7 @@ export function InventoryApp({
                     ))}
                   </NativeSelect>
                 </div>
-                <label className="grid gap-1.5 text-sm font-medium">
+                <label className="grid gap-1.5 text-sm font-medium text-slate-800">
                   ชื่อผู้เบิก / ผู้รับ / ผู้ทำรายการ
                   <input
                     required
@@ -791,16 +791,16 @@ export function InventoryApp({
                     onChange={(e) =>
                       setForm({ ...form, person: e.target.value })
                     }
-                    className="h-9 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-300"
                     placeholder="ชื่อ–นามสกุล"
                   />
                 </label>
                 {['คืน', 'ย้าย'].includes(form.action) && (
-                  <div className="grid gap-1.5 text-sm font-medium">
+                  <div className="grid gap-1.5 text-sm font-medium text-slate-800">
                     <label htmlFor="destination-select">ปลายทาง</label>
                     <NativeSelect
                       id="destination-select"
-                      className="w-full"
+                      className="w-full border-slate-300 bg-white text-slate-900"
                       value={form.destination}
                       onChange={(e) =>
                         setForm({ ...form, destination: e.target.value })
@@ -811,12 +811,12 @@ export function InventoryApp({
                     </NativeSelect>
                   </div>
                 )}
-                <label className="grid gap-1.5 text-sm font-medium">
+                <label className="grid gap-1.5 text-sm font-medium text-slate-800">
                   หมายเหตุ
                   <input
                     value={form.note}
                     onChange={(e) => setForm({ ...form, note: e.target.value })}
-                    className="h-9 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-300"
                     placeholder="ถ้ามี"
                   />
                 </label>
@@ -825,7 +825,7 @@ export function InventoryApp({
               <div className="mt-6 flex justify-end gap-2">
                 <button
                   type="button"
-                  className="rounded-lg border px-4 py-2 text-sm font-medium"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   onClick={() => setOpen(false)}
                 >
                   ยกเลิก
