@@ -22,7 +22,7 @@ let firebaseModulesPromise: Promise<{
   getAuth: typeof import('firebase/auth').getAuth;
   GoogleAuthProvider: typeof import('firebase/auth').GoogleAuthProvider;
   onAuthStateChanged: typeof import('firebase/auth').onAuthStateChanged;
-  signInWithPopup: typeof import('firebase/auth').signInWithPopup;
+  signInWithRedirect: typeof import('firebase/auth').signInWithRedirect;
   signOut: typeof import('firebase/auth').signOut;
 }> | null = null;
 
@@ -48,7 +48,7 @@ async function getFirebaseAuth() {
       getAuth: authModule.getAuth,
       GoogleAuthProvider: authModule.GoogleAuthProvider,
       onAuthStateChanged: authModule.onAuthStateChanged,
-      signInWithPopup: authModule.signInWithPopup,
+      signInWithRedirect: authModule.signInWithRedirect,
       signOut: authModule.signOut,
     }));
   }
@@ -79,7 +79,7 @@ export async function signInWithGoogle() {
   if (!result) throw new Error('Firebase Auth ยังไม่ได้ตั้งค่า');
   const provider = new result.modules.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  return result.modules.signInWithPopup(result.auth, provider);
+  return result.modules.signInWithRedirect(result.auth, provider);
 }
 
 export async function signOutFromFirebase() {
