@@ -1,0 +1,118 @@
+rules_version = '2';
+
+// Prototype rules for review before production rollout.
+// Data model:
+// - stock_items/{stockCode}: id, code, event, color, bib, value
+// - allocations/{allocationId}: event, color, bib_confirm, bib_sign, rider,
+//   club, initial_location, current_location, current_status, stock_code,
+//   stock_color, match_status
+// - transactions/{transactionId}: id, allocation_id, action, person,
+//   from_location, to_location, note, created_at
+// - app_meta/seed_version: value
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isApproved() {
+      return request.auth != null && request.auth.token.email in [
+        'phalot.k@tefthailand.com',
+        'wannisa.j@tefthailand.com',
+        'nara.k@tefthailand.com',
+        'piyathida.y@tefthailand.com',
+        'surakij.u@tefthailand.com',
+        'davin.s@tefthailand.com',
+        'angela.a@tefthailand.com',
+        'gunwalada.m@tefthailand.com',
+        'ryan.e@tefthailand.com'
+      ];
+    }
+
+    function canManage() {
+      return isApproved() && request.auth.token.email in [
+        'phalot.k@tefthailand.com',
+        'wannisa.j@tefthailand.com'
+      ];
+    }
+
+    function hasOnly(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasAll(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function validStock() {
+      return hasOnly(['id', 'code', 'event', 'color', 'bib', 'value']) &&
+        hasAll(['id', 'code', 'event', 'color', 'bib', 'value']) &&
+        request.resource.data.id is number &&
+        request.resource.data.code is string &&
+        request.resource.data.event is string &&
+        request.resource.data.color is string &&
+        request.resource.data.value is number && request.resource.data.value >= 0;
+    }
+
+    function validAllocation() {
+      return hasOnly([
+        'event', 'color', 'bib_confirm', 'bib_sign', 'rider', 'club',
+        'initial_location', 'current_location', 'current_status',
+        'stock_code', 'stock_color', 'match_status'
+      ]) &&
+        hasAll([
+          'event', 'color', 'bib_confirm', 'bib_sign', 'rider', 'club',
+          'initial_location', 'current_location', 'current_status',
+          'stock_code', 'stock_color', 'match_status'
+        ]) &&
+        request.resource.data.event is string &&
+        request.resource.data.color is string &&
+        request.resource.data.bib_confirm is number &&
+        request.resource.data.bib_sign is number &&
+        request.resource.data.current_location is string &&
+        request.resource.data.current_status is string;
+    }
+
+    function validTransaction() {
+      return hasOnly([
+        'id', 'allocation_id', 'action', 'person', 'from_location',
+        'to_location', 'note', 'created_at'
+      ]) &&
+        hasAll([
+          'id', 'allocation_id', 'action', 'person', 'from_location',
+          'to_location', 'note', 'created_at'
+        ]) &&
+        request.resource.data.id is number &&
+        request.resource.data.allocation_id is number &&
+        request.resource.data.action is string &&
+        request.resource.data.person is string;
+    }
+
+    match /stock_items/{stockCode} {
+      allow read: if isApproved();
+      allow create, update: if canManage() && validStock();
+      allow delete: if false;
+    }
+
+    match /allocations/{allocationId} {
+      allow read: if isApproved();
+      allow create: if canManage() && validAllocation();
+      allow update: if canManage() && validAllocation() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'current_location', 'current_status'
+        ]);
+      allow delete: if false;
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isApproved();
+      allow create: if canManage() && validTransaction();
+      allow update, delete: if false;
+    }
+
+    match /app_meta/{metaId} {
+      allow read: if isApproved();
+      allow create, update: if canManage() &&
+        request.resource.data.keys().hasOnly(['value']) &&
+        request.resource.data.value is string;
+      allow delete: if false;
+    }
+  }
+}

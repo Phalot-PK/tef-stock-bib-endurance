@@ -14,6 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  getFirebaseIdToken,
+  isFirebaseAuthEnabled,
+  signInWithGoogle,
+  subscribeToFirebaseAuth,
+} from '@/lib/firebase-client';
 
 type Allocation = {
   id: number;
@@ -144,6 +150,10 @@ export function InventoryApp({
 }) {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState('');
+  const [firebaseAuthEnabled, setFirebaseAuthEnabled] = useState(false);
+  const [firebaseAuthReady, setFirebaseAuthReady] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<{ email?: string } | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('ทั้งหมด');
   const [color, setColor] = useState('ทั้งหมด');
@@ -167,22 +177,55 @@ export function InventoryApp({
     note: '',
   });
 
+  const requestHeaders = async (extra: Record<string, string> = {}) => {
+    const token = await getFirebaseIdToken();
+    return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+  };
+
   const load = async () => {
     try {
-      const response = await fetch('/api/inventory', { cache: 'no-store' });
+      const response = await fetch('/api/inventory', {
+        cache: 'no-store',
+        headers: await requestHeaders(),
+      });
       if (!response.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
       setData(await response.json());
       setError('');
-    } catch {
-      setError('ยังเชื่อมต่อฐานข้อมูลไม่ได้ กรุณาลองใหม่');
+    } catch (loadError) {
+      setError(
+        firebaseAuthEnabled && !firebaseUser
+          ? 'กรุณาเข้าสู่ระบบด้วยบัญชี Google ที่ได้รับอนุญาต'
+          : loadError instanceof Error
+            ? loadError.message
+            : 'ยังเชื่อมต่อฐานข้อมูลไม่ได้ กรุณาลองใหม่',
+      );
     }
   };
+
   useEffect(() => {
+    const enabled = isFirebaseAuthEnabled();
+    setFirebaseAuthEnabled(enabled);
+    if (!enabled) {
+      setFirebaseAuthReady(true);
+      return;
+    }
+    return subscribeToFirebaseAuth((user) => {
+      setFirebaseUser(user ? { email: user.email ?? '' } : null);
+      setFirebaseAuthReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!firebaseAuthReady) return;
+    if (firebaseAuthEnabled && !firebaseUser) {
+      setError('กรุณาเข้าสู่ระบบด้วยบัญชี Google ที่ได้รับอนุญาต');
+      return;
+    }
     const timer = window.setTimeout(() => {
       void load();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [firebaseAuthEnabled, firebaseAuthReady, firebaseUser]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -229,7 +272,7 @@ export function InventoryApp({
     setMessage('');
     const response = await fetch('/api/inventory', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await requestHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         ...form,
         allocationId: Number(form.allocationId),
@@ -268,8 +311,11 @@ export function InventoryApp({
       <main className="grid min-h-screen place-items-center bg-background p-6">
         <section className="w-full max-w-lg rounded-2xl border bg-card p-7 text-center shadow-sm">
           <h1 className="text-xl font-semibold">
-            ยินดีต้อนรับเข้าสู่ TEF Stock BIB Endurance Inventory
+            ลงชื่อเข้าใช้ผ่านบัญชี Gmail
           </h1>
+          <p className="mt-1 text-sm font-semibold text-slate-700">
+            @tefthailand.com เท่านั้น / Approved TEF account only
+          </p>
           <p className="mt-3 text-sm text-muted-foreground">
             {error} / Please sign in with an approved account.
           </p>
@@ -277,6 +323,31 @@ export function InventoryApp({
             ระบบนี้ใช้บัญชีที่ Sites อนุญาต เช่น Gmail/Workspace account / Use an allowed
             Gmail or Workspace account.
           </p>
+          {firebaseAuthEnabled && !firebaseUser && (
+            <button
+              type="button"
+              disabled={authBusy}
+              className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#1a73e8] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#1557b0] disabled:opacity-60"
+              onClick={async () => {
+                setAuthBusy(true);
+                setMessage('');
+                try {
+                  await signInWithGoogle();
+                } catch (signInError) {
+                  setMessage(
+                    signInError instanceof Error
+                      ? signInError.message
+                      : 'เข้าสู่ระบบ Google ไม่สำเร็จ',
+                  );
+                } finally {
+                  setAuthBusy(false);
+                }
+              }}
+            >
+              {authBusy ? 'กำลังเข้าสู่ระบบ…' : 'Sign in with Google'}
+            </button>
+          )}
+          {message && <p className="mt-3 text-sm text-red-700">{message}</p>}
         </section>
       </main>
     );
@@ -315,7 +386,7 @@ export function InventoryApp({
                 TEF Stock BIB Endurance Inventory
               </h1>
               <p className="text-sm font-semibold text-amber-300">
-                ระบบจัดการสต๊อก BIB ประเภทความทนทาน
+                ระบบจัดการเสื้อสำหรับการแข่งขัน Endurance (BIB) สำหรับนักกีฬา เจ้าหน้าที่ และกรรมการตัดสิน
               </p>
               {data?.viewer.email && (
                 <p className="mt-1 text-xs text-primary-foreground/70">
@@ -326,22 +397,6 @@ export function InventoryApp({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href={initialStockOnly || initialHistoryOnly ? '/' : '/stock'}
-              className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-sm font-semibold text-primary-foreground hover:bg-white/10"
-            >
-              {initialStockOnly || initialHistoryOnly
-                ? 'กลับหน้าหลัก / Home'
-                : 'สต๊อกตั้งต้น / Initial stock'}
-            </Link>
-            {!initialStockOnly && !initialHistoryOnly && (
-              <Link
-                href="/history"
-                className="inline-flex h-10 items-center rounded-lg border border-white/20 px-4 text-sm font-semibold text-primary-foreground hover:bg-white/10"
-              >
-                ประวัติรายการ / History
-              </Link>
-            )}
             <button
               disabled={!canEnterAdmin}
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
@@ -357,18 +412,65 @@ export function InventoryApp({
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1500px] px-5 py-7 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-5 px-5 py-7 lg:flex-row lg:px-8">
+        <aside className="w-full shrink-0 rounded-2xl border bg-[#061f44] p-3 text-white shadow-sm lg:sticky lg:top-5 lg:h-fit lg:w-56">
+          <nav aria-label="เมนูหลัก / Main navigation" className="grid gap-1">
+            <Link
+              href="/"
+              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'q3' ? 'bg-[#8f1028] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+            >
+              Dashboard
+              <span className="mt-0.5 block text-xs font-normal opacity-80">ภาพรวมและค้นหา BIB</span>
+            </Link>
+            <Link
+              href="/stock"
+              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'stock' ? 'bg-[#8f1028] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+            >
+              Initial Stock
+              <span className="mt-0.5 block text-xs font-normal opacity-80">สต๊อกตั้งต้นตามสถานที่</span>
+            </Link>
+            <Link
+              href="/#latest-dpe-cei"
+              className="rounded-xl px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+            >
+              Latest DPE/CEI
+              <span className="mt-0.5 block text-xs font-normal opacity-80">รายการล่าสุด</span>
+            </Link>
+            <button
+              type="button"
+              className="rounded-xl px-4 py-3 text-left text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+              onClick={() => (isAdmin ? setOpen(true) : setAdminGateOpen(true))}
+            >
+              Transactions
+              <span className="mt-0.5 block text-xs font-normal opacity-80">เบิก / จ่าย / คืน / ย้าย</span>
+            </button>
+            <Link
+              href="/history"
+              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'history' ? 'bg-[#8f1028] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+            >
+              History
+              <span className="mt-0.5 block text-xs font-normal opacity-80">ประวัติการทำรายการ</span>
+            </Link>
+          </nav>
+        </aside>
+
+        <div className="min-w-0 flex-1">
         <section className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <h2 className="text-3xl font-semibold tracking-tight">
               ยินดีต้อนรับสู่ TEF Stock BIB Endurance Inventory
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              ค้นหาเสื้อจากหมายเลข BIB เพื่อดูตำแหน่งล่าสุดและสี / Search a BIB number to
-              see its latest location and color.
+              ค้นหารายการ / Search เพื่อดูตำแหน่งล่าสุด สี และรหัสเสื้อที่เกี่ยวข้อง
+              / Search to see the latest location, color, and related shirt code.
             </p>
           </div>
-          <label
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearch((value) => value.trim());
+            }}
+            id="search-bib"
             aria-label="ค้นหา BIB หรือรหัสเสื้อ / Search BIB or code"
             className="flex min-w-[300px] items-center gap-2 rounded-xl border bg-card px-3 shadow-sm"
           >
@@ -376,9 +478,15 @@ export function InventoryApp({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-11 w-full border-0 bg-transparent px-0 text-sm outline-none"
-              placeholder="ค้นหา BIB หรือรหัสเสื้อ / Search BIB or code"
+              placeholder="ค้นหาด้วย CEI/CEN80/CEN40"
             />
-          </label>
+            <button
+              type="submit"
+              className="shrink-0 rounded-lg bg-[#8f1028] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#731021]"
+            >
+              ค้นหา / Search
+            </button>
+          </form>
         </section>
 
         {error && (
@@ -482,7 +590,7 @@ export function InventoryApp({
         )}
 
         {!initialStockOnly && !initialHistoryOnly && tab === 'q3' && (
-          <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+          <section id="latest-dpe-cei" className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
               <div>
                 <h3 className="font-semibold">
@@ -709,6 +817,7 @@ export function InventoryApp({
             <li>• Initial-stock codes are unique and each item is valued at 500 THB</li>
           </ul>
         </div>
+        </div>
       </div>
 
       {adminGateOpen && (
@@ -730,7 +839,7 @@ export function InventoryApp({
                 setMessage('');
                 const response = await fetch('/api/inventory', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: await requestHeaders({ 'Content-Type': 'application/json' }),
                   body: JSON.stringify({
                     intent: 'enter-admin',
                     adminPassword,
@@ -830,23 +939,38 @@ export function InventoryApp({
                     ))}
                   </NativeSelect>
                 </div>
-                <div className="grid gap-1.5 text-sm font-medium text-slate-800">
-                  <label htmlFor="action-select">ประเภทรายการ</label>
-                  <NativeSelect
-                    id="action-select"
-                    className="w-full border-slate-300 bg-white text-slate-900"
-                    value={form.action}
-                    onChange={(e) =>
-                      setForm({ ...form, action: e.target.value })
-                    }
-                  >
-                    {actionDefinitions.map((item) => (
-                      <NativeSelectOption key={item.value} value={item.value}>
-                        {item.title}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                </div>
+                <fieldset className="grid gap-2 text-sm font-medium text-slate-800">
+                  <legend>ประเภทรายการ / Transaction type</legend>
+                  <div className="grid grid-cols-2 gap-3">
+                    {actionDefinitions.map((item) => {
+                      const selected = form.action === item.value;
+                      const tone =
+                        item.value === 'เบิก'
+                          ? 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                          : item.value === 'จ่าย'
+                            ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                            : item.value === 'คืน'
+                              ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                              : 'bg-violet-50 border-violet-200 hover:bg-violet-100';
+                      return (
+                        <button
+                          key={item.value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => setForm({ ...form, action: item.value })}
+                          className={`min-h-24 rounded-xl border p-3 text-left transition ${tone} ${selected ? 'ring-2 ring-[#8f1028] ring-offset-2' : ''}`}
+                        >
+                          <span className="block text-sm font-semibold text-slate-900">
+                            {item.title}
+                          </span>
+                          <span className="mt-1 block text-xs font-normal leading-5 text-slate-600">
+                            {item.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800">
                   ชื่อผู้เบิก / ผู้รับ / ผู้ทำรายการ
                   <input

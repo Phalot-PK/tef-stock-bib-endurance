@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://bib-stock-endurance.sweetminty1.chatgpt.site'),
   title: 'ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory',
   description:
-    'จัดกลุ่มเสื้อ BIB, Officials และ Photo พร้อมเบิก จ่าย คืน และย้าย / Grouped stock with withdrawal, issue, return, and transfer.',
+    'ระบบจัดการเสื้อสำหรับการแข่งขัน Endurance (BIB) สำหรับนักกีฬา เจ้าหน้าที่ และกรรมการตัดสิน พร้อมเบิก จ่าย คืน และย้าย.',
   openGraph: {
     title: 'ระบบสต๊อกเสื้อ BIB / BIB Shirt Inventory',
     description: 'BIB • Officials • Photo · เบิก • จ่าย • คืน • ย้าย',

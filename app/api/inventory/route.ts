@@ -1,6 +1,10 @@
 import { env } from 'cloudflare:workers';
 import { allocationSeeds, allAllocationSeeds, stockSeeds } from '@/lib/seed-data';
 import { getAllowedUser } from '@/lib/access';
+import {
+  applyFirestoreTransaction,
+  loadFirestoreInventory,
+} from '@/lib/firestore-rest';
 
 export const runtime = 'edge';
 // Database repair migrations are applied on the first authenticated request.
@@ -12,12 +16,59 @@ function authenticatedUser(request: Request) {
   return getAllowedUser(authenticatedEmail(request));
 }
 
+type FirebaseSession = {
+  token: string;
+  viewer: NonNullable<ReturnType<typeof getAllowedUser>>;
+};
+
+function firebaseSession(request: Request): FirebaseSession | null {
+  const header = request.headers.get('authorization') ?? '';
+  if (!header.toLowerCase().startsWith('bearer ')) return null;
+  const token = header.slice(7).trim();
+  const payload = token.split('.')[1];
+  if (!payload) return null;
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='))) as {
+      email?: string;
+    };
+    const viewer = decoded.email ? getAllowedUser(decoded.email) : null;
+    return viewer ? { token, viewer } : null;
+  } catch {
+    return null;
+  }
+}
+
+function viewerPayload(viewer: NonNullable<ReturnType<typeof getAllowedUser>>) {
+  return {
+    email: viewer.email,
+    name: viewer.name,
+    // Keep the secondary Admin account visually classified as a general user;
+    // the capability is enforced server-side and is not advertised in the UI.
+    role: viewer.role === 'secret-admin' ? 'viewer' : viewer.role,
+    displayRole: viewer.displayRole,
+    canEnterAdminMode: viewer.canEnterAdminMode,
+    canComment: viewer.canComment,
+    adminModeAvailable: Boolean(
+      (env as unknown as { ADMIN_MODE_PASSWORD_PRIMARY?: string })
+        .ADMIN_MODE_PASSWORD_PRIMARY ||
+        (env as unknown as { ADMIN_MODE_PASSWORD_SECONDARY?: string })
+        .ADMIN_MODE_PASSWORD_SECONDARY,
+    ),
+  };
+}
+
 async function isAdminPasswordValid(password: string) {
+  const processEnv = (
+    globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }
+  ).process?.env;
   const configured = [
     (env as unknown as { ADMIN_MODE_PASSWORD_PRIMARY?: string })
       .ADMIN_MODE_PASSWORD_PRIMARY,
     (env as unknown as { ADMIN_MODE_PASSWORD_SECONDARY?: string })
       .ADMIN_MODE_PASSWORD_SECONDARY,
+    processEnv?.ADMIN_MODE_PASSWORD_PRIMARY,
+    processEnv?.ADMIN_MODE_PASSWORD_SECONDARY,
   ].filter((value): value is string => Boolean(value));
   if (!password || configured.length === 0) return false;
   return configured.some((candidate) => candidate === password);
@@ -194,6 +245,19 @@ async function prepareDatabase() {
 }
 
 export async function GET(request: Request) {
+  const firebase = firebaseSession(request);
+  if (firebase) {
+    try {
+      const inventory = await loadFirestoreInventory(firebase.token);
+      return Response.json({ viewer: viewerPayload(firebase.viewer), ...inventory });
+    } catch (error) {
+      return Response.json(
+        { error: 'เชื่อมต่อ Firestore ไม่สำเร็จ', detail: String(error) },
+        { status: 502 },
+      );
+    }
+  }
+
   const viewer = authenticatedUser(request);
   if (!viewer)
     return Response.json(
@@ -213,22 +277,7 @@ export async function GET(request: Request) {
     env.DB.prepare('SELECT * FROM stock_items ORDER BY event, bib').all(),
   ]);
   return Response.json({
-    viewer: {
-      email: viewer.email,
-      name: viewer.name,
-      // Keep the secondary Admin account visually classified as a general user;
-      // the capability is enforced server-side and is not advertised in the UI.
-      role: viewer.role === 'secret-admin' ? 'viewer' : viewer.role,
-      displayRole: viewer.displayRole,
-      canEnterAdminMode: viewer.canEnterAdminMode,
-      canComment: viewer.canComment,
-      adminModeAvailable: Boolean(
-        (env as unknown as { ADMIN_MODE_PASSWORD_PRIMARY?: string })
-          .ADMIN_MODE_PASSWORD_PRIMARY ||
-          (env as unknown as { ADMIN_MODE_PASSWORD_SECONDARY?: string })
-            .ADMIN_MODE_PASSWORD_SECONDARY,
-      ),
-    },
+    viewer: viewerPayload(viewer),
     allocations: allocations.results,
     transactions: transactions.results,
     stock: stock.results,
@@ -236,7 +285,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const viewer = authenticatedUser(request);
+  const firebase = firebaseSession(request);
+  const viewer = firebase?.viewer ?? authenticatedUser(request);
   if (!viewer)
     return Response.json(
       { error: 'บัญชีนี้ยังไม่ได้รับอนุญาตให้ทำรายการ' },
@@ -262,6 +312,26 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   if (body.intent === 'enter-admin') return Response.json({ ok: true });
+
+  if (firebase) {
+    if (!body.allocationId || !body.action || !body.person?.trim())
+      return Response.json({ error: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบ' }, { status: 400 });
+    if (!['เบิก', 'จ่าย', 'คืน', 'ย้าย'].includes(body.action))
+      return Response.json({ error: 'ประเภทรายการไม่ถูกต้อง' }, { status: 400 });
+    const result = await applyFirestoreTransaction(
+      firebase.token,
+      Number(body.allocationId),
+      body.action,
+      body.person.trim(),
+      body.destination?.trim() ?? '',
+      body.note?.trim() ?? '',
+    );
+    return Response.json(
+      'error' in result ? { error: result.error } : result,
+      'status' in result ? { status: result.status } : undefined,
+    );
+  }
+
   await prepareDatabase();
   if (!body.allocationId || !body.action || !body.person?.trim())
     return Response.json({ error: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบ' }, { status: 400 });
