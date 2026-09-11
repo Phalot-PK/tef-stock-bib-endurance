@@ -4,12 +4,14 @@ import type { FirebaseApp } from 'firebase/app';
 import type { Auth, User } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ?? '',
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? '',
   authDomain:
-    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? 'tef-inventory-bib.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'tef-inventory-bib',
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ??
+    'tef-inventory-bib.firebaseapp.com',
+  projectId:
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'tef-inventory-bib',
   appId:
-    import.meta.env.VITE_FIREBASE_APP_ID ??
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID ??
     '1:970198541323:web:1f36afe8347c9d2184930e',
 };
 
@@ -32,7 +34,7 @@ export function isFirebaseAuthEnabled() {
   const hostedByFirebase =
     host.endsWith('.web.app') || host.endsWith('.firebaseapp.com');
   return Boolean(firebaseConfig.apiKey) &&
-    (hostedByFirebase || import.meta.env.VITE_FORCE_FIREBASE_AUTH === 'true');
+    (hostedByFirebase || process.env.NEXT_PUBLIC_FORCE_FIREBASE_AUTH === 'true');
 }
 
 async function getFirebaseAuth() {
