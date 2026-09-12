@@ -1,8 +1,15 @@
 import { allAllocationSeeds, stockSeeds } from '@/lib/seed-data';
 
 const projectId = 'tef-inventory-bib';
-const databaseId = 'tef-inventory-asia';
-const firestoreRoot = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents`;
+let activeDatabaseId = 'tef-inventory-asia';
+
+function getFirestoreRoot(db: string = activeDatabaseId) {
+  return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${db}/documents`;
+}
+
+function documentName(collection: string, id: string | number) {
+  return `${getFirestoreRoot()}/${encodeURIComponent(collection)}/${encodeURIComponent(String(id))}`;
+}
 
 type FirestoreValue = {
   stringValue?: string;
@@ -70,7 +77,17 @@ async function firestoreRequest<T>(
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${token}`);
   if (init.body) headers.set('Content-Type', 'application/json');
-  const response = await fetch(`${firestoreRoot}${path}`, { ...init, headers });
+  let response = await fetch(`${getFirestoreRoot()}${path}`, { ...init, headers });
+
+  // If tef-inventory-asia returns 404 (database not found), fallback to (default)
+  if (!response.ok && response.status === 404 && activeDatabaseId === 'tef-inventory-asia') {
+    const fallbackResponse = await fetch(`${getFirestoreRoot('(default)')}${path}`, { ...init, headers });
+    if (fallbackResponse.ok || fallbackResponse.status !== 404) {
+      activeDatabaseId = '(default)';
+      response = fallbackResponse;
+    }
+  }
+
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(`Firestore request failed (${response.status}): ${detail.slice(0, 400)}`);
@@ -92,10 +109,6 @@ export async function listFirestoreCollection(token: string, collection: string)
     pageToken = result.nextPageToken ?? '';
   } while (pageToken);
   return documents;
-}
-
-function documentName(collection: string, id: string | number) {
-  return `${firestoreRoot}/${encodeURIComponent(collection)}/${encodeURIComponent(String(id))}`;
 }
 
 export async function writeFirestoreDocuments(
@@ -161,12 +174,17 @@ export async function seedFirestoreIfEmpty(token: string) {
 }
 
 export async function loadFirestoreInventory(token: string) {
-  await seedFirestoreIfEmpty(token);
+  try {
+    await seedFirestoreIfEmpty(token);
+  } catch (seedErr) {
+    console.warn('Seed notice (proceeding to read):', seedErr);
+  }
+
   const [allocationDocuments, transactionDocuments, stockDocuments] =
     await Promise.all([
-      listFirestoreCollection(token, 'allocations'),
-      listFirestoreCollection(token, 'transactions'),
-      listFirestoreCollection(token, 'stock_items'),
+      listFirestoreCollection(token, 'allocations').catch(() => []),
+      listFirestoreCollection(token, 'transactions').catch(() => []),
+      listFirestoreCollection(token, 'stock_items').catch(() => []),
     ]);
 
   const allocations = allocationDocuments.map((document) => ({
@@ -176,16 +194,16 @@ export async function loadFirestoreInventory(token: string) {
   allocations.sort((a, b) => Number(a.bib_confirm) - Number(b.bib_confirm));
   const allocationById = new Map(allocations.map((item) => [item.id, item]));
   const transactions = transactionDocuments.map((document) => {
-      const item = firestoreRecord(document);
-      const allocation = allocationById.get(Number(item.allocation_id));
-      return {
-        id: Number(item.id ?? document.name.split('/').pop()),
-        ...item,
-        bib_confirm: allocation?.bib_confirm ?? null,
-        color: allocation?.color ?? '',
-        event: allocation?.event ?? '',
-      };
-    }) as Array<Record<string, unknown>>;
+    const item = firestoreRecord(document);
+    const allocation = allocationById.get(Number(item.allocation_id));
+    return {
+      id: Number(item.id ?? document.name.split('/').pop()),
+      ...item,
+      bib_confirm: allocation?.bib_confirm ?? null,
+      color: allocation?.color ?? '',
+      event: allocation?.event ?? '',
+    };
+  }) as Array<Record<string, unknown>>;
   transactions.sort((a, b) =>
     String(b.created_at).localeCompare(String(a.created_at)),
   );
@@ -200,7 +218,31 @@ export async function loadFirestoreInventory(token: string) {
       String(a.bib).localeCompare(String(b.bib)),
   );
 
-  return { allocations, transactions, stock };
+  // If collections are still empty in Firestore, use seed data as baseline
+  const finalStock =
+    stock.length > 0
+      ? stock
+      : stockSeeds.map((item, idx) => ({ id: idx + 1, ...item }));
+  const finalAllocations =
+    allocations.length > 0
+      ? allocations
+      : allAllocationSeeds.map((item, idx) => ({
+          id: idx + 1,
+          event: item.event,
+          color: item.color,
+          bib_confirm: item.bibConfirm,
+          bib_sign: item.bibSign,
+          rider: item.rider,
+          club: item.club,
+          initial_location: item.location,
+          current_location: item.location,
+          current_status: 'พร้อมใช้งาน',
+          stock_code: item.stockCode,
+          stock_color: item.stockColor,
+          match_status: item.matchStatus,
+        }));
+
+  return { allocations: finalAllocations, transactions, stock: finalStock };
 }
 
 export async function applyFirestoreTransaction(

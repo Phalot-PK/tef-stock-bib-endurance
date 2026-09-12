@@ -189,7 +189,16 @@ export function InventoryApp({
         cache: 'no-store',
         headers: await requestHeaders(),
       });
-      if (!response.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+      if (!response.ok) {
+        const errorJson = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          detail?: string;
+        };
+        const errorMsg = errorJson.detail
+          ? `${errorJson.error || 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ'}: ${errorJson.detail}`
+          : errorJson.error || 'โหลดข้อมูลไม่สำเร็จ';
+        throw new Error(errorMsg);
+      }
       setData(await response.json());
       setError('');
     } catch (loadError) {
@@ -322,17 +331,44 @@ export function InventoryApp({
           </p>
 
           {firebaseUser?.email && (
-            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-left text-xs text-amber-950">
-              <div className="font-semibold">ลงชื่อเข้าใช้ด้วย: {firebaseUser.email}</div>
-              <p className="mt-1 text-amber-800">
-                บัญชีนี้ยังไม่ได้รับอนุญาตในระบบ หรือไม่ใช่บัญชี @tefthailand.com ที่กำหนดไว้ กรุณาสลับไปใช้อีเมลเจ้าหน้าที่ TEF
-              </p>
+            <div
+              className={`mt-4 rounded-xl border p-3 text-left text-xs ${
+                firebaseUser.email.endsWith('@tefthailand.com')
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                  : 'border-amber-300 bg-amber-50 text-amber-950'
+              }`}
+            >
+              <div className="font-semibold flex items-center justify-between">
+                <span>ลงชื่อเข้าใช้ด้วย: {firebaseUser.email}</span>
+                {firebaseUser.email.endsWith('@tefthailand.com') && (
+                  <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px] font-bold">
+                    บัญชีเจ้าหน้าที่ TEF
+                  </span>
+                )}
+              </div>
+              {!firebaseUser.email.endsWith('@tefthailand.com') && (
+                <p className="mt-1 text-amber-800">
+                  บัญชีนี้ไม่ใช่ @tefthailand.com กรุณาสลับไปใช้อีเมลเจ้าหน้าที่ TEF
+                </p>
+              )}
             </div>
           )}
 
-          <p className="mt-4 text-xs text-muted-foreground">
-            {error}
-          </p>
+          {error && (
+            <div className="mt-4 rounded-lg bg-rose-50 p-3 text-xs text-rose-900 border border-rose-200 text-left">
+              <div className="font-bold flex items-center justify-between">
+                <span>ข้อผิดพลาดจากฐานข้อมูล:</span>
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="text-[11px] bg-rose-700 text-white px-2.5 py-0.5 rounded hover:bg-rose-800 font-medium"
+                >
+                  กดลองโหลดใหม่ (Retry)
+                </button>
+              </div>
+              <div className="mt-1.5 font-mono text-[11px] break-all opacity-90">{error}</div>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
             <button
