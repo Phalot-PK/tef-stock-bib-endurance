@@ -24,7 +24,9 @@ let firebaseModulesPromise: Promise<{
   getAuth: typeof import('firebase/auth').getAuth;
   GoogleAuthProvider: typeof import('firebase/auth').GoogleAuthProvider;
   onAuthStateChanged: typeof import('firebase/auth').onAuthStateChanged;
+  signInWithPopup: typeof import('firebase/auth').signInWithPopup;
   signInWithRedirect: typeof import('firebase/auth').signInWithRedirect;
+  getRedirectResult: typeof import('firebase/auth').getRedirectResult;
   signOut: typeof import('firebase/auth').signOut;
 }> | null = null;
 
@@ -54,7 +56,9 @@ async function getFirebaseAuth() {
       getAuth: authModule.getAuth,
       GoogleAuthProvider: authModule.GoogleAuthProvider,
       onAuthStateChanged: authModule.onAuthStateChanged,
+      signInWithPopup: authModule.signInWithPopup,
       signInWithRedirect: authModule.signInWithRedirect,
+      getRedirectResult: authModule.getRedirectResult,
       signOut: authModule.signOut,
     }));
   }
@@ -67,12 +71,23 @@ async function getFirebaseAuth() {
 export function subscribeToFirebaseAuth(callback: (user: User | null) => void) {
   let cancelled = false;
   let unsubscribe: () => void = () => undefined;
-  void getFirebaseAuth().then((result) => {
+  void getFirebaseAuth().then(async (result) => {
     if (!result) {
       callback(null);
       return;
     }
-    if (!cancelled) unsubscribe = result.modules.onAuthStateChanged(result.auth, callback);
+    try {
+      const redirectRes = await result.modules.getRedirectResult(result.auth);
+      if (redirectRes?.user) {
+        callback(redirectRes.user);
+      }
+    } catch (err: unknown) {
+      const errObj = err as { code?: string; message?: string };
+      console.warn('Redirect auth check notice:', errObj?.message || err);
+    }
+    if (!cancelled) {
+      unsubscribe = result.modules.onAuthStateChanged(result.auth, callback);
+    }
   });
   return () => {
     cancelled = true;
@@ -82,10 +97,23 @@ export function subscribeToFirebaseAuth(callback: (user: User | null) => void) {
 
 export async function signInWithGoogle() {
   const result = await getFirebaseAuth();
-  if (!result) throw new Error('Firebase Auth ยังไม่ได้ตั้งค่า');
+  if (!result) throw new Error('Firebase Auth ยังไม่ได้ตั้งค่า (ตรวจสอบ NEXT_PUBLIC_FIREBASE_API_KEY)');
   const provider = new result.modules.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  return result.modules.signInWithRedirect(result.auth, provider);
+  try {
+    return await result.modules.signInWithPopup(result.auth, provider);
+  } catch (popupError: unknown) {
+    const err = popupError as { code?: string; message?: string };
+    if (err?.code === 'auth/unauthorized-domain') {
+      throw new Error(
+        'โดเมนนี้ยังไม่ได้รับอนุญาตใน Firebase (auth/unauthorized-domain): กรุณาเพิ่มโดเมนของ Vercel ใน Firebase Console > Authentication > Settings > Authorized domains',
+      );
+    }
+    if (err?.code === 'auth/popup-blocked') {
+      return await result.modules.signInWithRedirect(result.auth, provider);
+    }
+    throw popupError;
+  }
 }
 
 export async function signOutFromFirebase() {

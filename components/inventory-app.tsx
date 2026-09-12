@@ -18,6 +18,7 @@ import {
   getFirebaseIdToken,
   isFirebaseAuthEnabled,
   signInWithGoogle,
+  signOutFromFirebase,
   subscribeToFirebaseAuth,
 } from '@/lib/firebase-client';
 
@@ -310,24 +311,34 @@ export function InventoryApp({
     return (
       <main className="grid min-h-screen place-items-center bg-background p-6">
         <section className="w-full max-w-lg rounded-2xl border bg-card p-7 text-center shadow-sm">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-2xl">
+            🏇
+          </div>
           <h1 className="text-xl font-semibold">
             ลงชื่อเข้าใช้ผ่านบัญชี Gmail
           </h1>
-          <p className="mt-1 text-sm font-semibold text-slate-700">
+          <p className="mt-1 text-sm font-semibold text-rose-700">
             @tefthailand.com เท่านั้น / Approved TEF account only
           </p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            {error} / Please sign in with an approved account.
-          </p>
+
+          {firebaseUser?.email && (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-left text-xs text-amber-950">
+              <div className="font-semibold">ลงชื่อเข้าใช้ด้วย: {firebaseUser.email}</div>
+              <p className="mt-1 text-amber-800">
+                บัญชีนี้ยังไม่ได้รับอนุญาตในระบบ หรือไม่ใช่บัญชี @tefthailand.com ที่กำหนดไว้ กรุณาสลับไปใช้อีเมลเจ้าหน้าที่ TEF
+              </p>
+            </div>
+          )}
+
           <p className="mt-4 text-xs text-muted-foreground">
-            ระบบนี้ใช้บัญชีที่ Sites อนุญาต เช่น Gmail/Workspace account / Use an allowed
-            Gmail or Workspace account.
+            {error}
           </p>
-          {firebaseAuthEnabled && !firebaseUser && (
+
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
             <button
               type="button"
               disabled={authBusy}
-              className="mt-6 inline-flex h-11 items-center justify-center rounded-lg bg-[#1a73e8] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#1557b0] disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#1a73e8] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#1557b0] disabled:opacity-60"
               onClick={async () => {
                 setAuthBusy(true);
                 setMessage('');
@@ -344,10 +355,30 @@ export function InventoryApp({
                 }
               }}
             >
-              {authBusy ? 'กำลังเข้าสู่ระบบ…' : 'Sign in with Google'}
+              {authBusy ? 'กำลังเข้าสู่ระบบ…' : firebaseUser ? 'สลับบัญชี Google อื่น' : 'Sign in with Google'}
             </button>
+
+            {firebaseUser && (
+              <button
+                type="button"
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={async () => {
+                  await signOutFromFirebase();
+                  setFirebaseUser(null);
+                  setError('กรุณาเข้าสู่ระบบด้วยบัญชี Google ที่ได้รับอนุญาต (@tefthailand.com)');
+                  setMessage('');
+                }}
+              >
+                ออกจากระบบ
+              </button>
+            )}
+          </div>
+
+          {message && (
+            <div className="mt-4 rounded-lg bg-rose-50 p-3 text-xs text-rose-800 border border-rose-200 text-left">
+              {message}
+            </div>
           )}
-          {message && <p className="mt-3 text-sm text-red-700">{message}</p>}
         </section>
       </main>
     );
