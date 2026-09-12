@@ -937,14 +937,11 @@ export function InventoryApp({
                   required
                   type="password"
                   value={adminPassword}
-                  placeholder="ใส่รหัสผ่าน Admin (รหัสเริ่มต้น: tef2026)"
+                  placeholder="ใส่รหัสผ่านโหมด Admin"
                   onChange={(event) => setAdminPassword(event.target.value)}
                   className="h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-300"
                   autoComplete="current-password"
                 />
-                <span className="text-[11px] text-slate-500 font-normal">
-                  * รหัสผ่านเริ่มต้นคือ: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono font-bold text-slate-800">tef2026</code>
-                </span>
               </label>
               {message && <p className="text-sm text-red-700">{message}</p>}
               <div className="flex justify-end gap-2">
