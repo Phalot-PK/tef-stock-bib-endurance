@@ -2,6 +2,7 @@ import { getAllowedUser } from '@/lib/access';
 import {
   applyFirestoreTransaction,
   loadFirestoreInventory,
+  seedFirestore,
 } from '@/lib/firestore-rest';
 
 export const runtime = 'nodejs';
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
-    intent?: 'enter-admin' | 'transaction';
+    intent?: 'enter-admin' | 'transaction' | 'reseed';
     allocationId?: number;
     action?: string;
     person?: string;
@@ -105,6 +106,21 @@ export async function POST(request: Request) {
     return unauthorized('รหัสโหมด Admin ไม่ถูกต้อง หรือยังไม่ได้ตั้งค่ารหัสใน API');
   }
   if (body.intent === 'enter-admin') return Response.json({ ok: true });
+  if (body.intent === 'reseed') {
+    try {
+      const seedResult = await seedFirestore(firebase.token, true);
+      return Response.json({
+        ok: true,
+        message: `นำเข้าข้อมูลตั้งต้นใหม่จาก TEF Data Base V2 เข้าสู่ Firestore เรียบร้อย (${seedResult.count} รายการ)`,
+        seedResult,
+      });
+    } catch (seedError) {
+      return Response.json(
+        { error: 'ซิงค์ข้อมูลเข้า Firestore ไม่สำเร็จ', detail: String(seedError) },
+        { status: 502 },
+      );
+    }
+  }
 
   if (!body.allocationId || !body.action || !body.person?.trim()) {
     return Response.json(

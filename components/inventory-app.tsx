@@ -26,12 +26,17 @@ type Allocation = {
   id: number;
   event: string;
   color: string;
+  color_detail?: string;
   bib_confirm: number;
   bib_sign: number;
-  club: string;
+  rider?: string;
+  club?: string;
   initial_location: string;
   current_location: string;
   current_status: string;
+  craw_qty?: number;
+  last_event?: string;
+  remark?: string;
   stock_code: string;
   stock_color: string;
   match_status: string;
@@ -75,13 +80,16 @@ type Payload = {
 const locationClass = (location: string) =>
   location === 'Thai Polo'
     ? 'bg-rose-100 text-rose-800'
-    : location === 'สำนักงาน/สมาคม'
+    : location === 'TEF Office' || location === 'สำนักงาน/สมาคม'
       ? 'bg-amber-100 text-amber-900'
       : 'bg-sky-100 text-sky-800';
 const colorDot: Record<string, string> = {
   White: 'bg-white border',
+  'White (ขาว)': 'bg-white border',
   Orange: 'bg-orange-400',
+  'Orange (ส้ม)': 'bg-orange-400',
   Lemon: 'bg-yellow-300',
+  'Lemon (หรือ Green)': 'bg-yellow-300',
   Green: 'bg-green-500',
   Blue: 'bg-blue-600',
   Photo: 'bg-violet-500',
@@ -240,22 +248,34 @@ export function InventoryApp({
   const filtered = useMemo(() => {
     if (!data) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return data.allocations.filter(
-      (item) =>
-        (!q ||
-          [
-            item.bib_confirm,
-            item.bib_sign,
-            item.event,
-            item.color,
-            item.stock_code,
-            item.stock_color,
-            item.current_location,
-          ].some((v) => String(v).toLowerCase().includes(q))) &&
-        (location === 'ทั้งหมด' || item.current_location === location) &&
-        (color === 'ทั้งหมด' || item.color === color),
-    );
+    return data.allocations.filter((item) => {
+      const matchesQuery =
+        !q ||
+        [
+          item.bib_confirm,
+          item.bib_sign,
+          item.event,
+          item.color,
+          item.color_detail,
+          item.stock_code,
+          item.stock_color,
+          item.current_location,
+          item.current_status,
+          item.remark,
+          item.rider,
+          item.club,
+        ].some((v) => String(v ?? '').toLowerCase().includes(q));
+
+      const matchesLocation =
+        location === 'ทั้งหมด' || item.current_location === location;
+
+      const matchesColor =
+        color === 'ทั้งหมด' ||
+        item.color.toLowerCase() === color.toLowerCase() ||
+        String(item.color_detail ?? '').toLowerCase().includes(color.toLowerCase());
+
+      return matchesQuery && matchesLocation && matchesColor;
+    });
   }, [data, search, location, color]);
   const stockFiltered = useMemo(() => {
     if (!data) return [];
@@ -419,28 +439,32 @@ export function InventoryApp({
       </main>
     );
 
-  const numberedBibCount =
-    data?.stock.filter((item) => stockGroup(item) === 'เสื้อ BIB / Numbered BIB')
-      .length ?? 0;
+  const totalBibItems = data?.allocations.length ?? 87;
+  const totalCrawCount =
+    data?.allocations.reduce((sum, item) => sum + (item.craw_qty ?? 5), 0) ?? 434;
   const officialsCount =
     data?.stock.filter((item) => stockGroup(item) === 'เสื้อกรรมการ / Officials')
-      .length ?? 0;
+      .length ?? 69;
   const photoCount =
     data?.stock.filter((item) => stockGroup(item) === 'เสื้อ Photo / Photo')
-      .length ?? 0;
+      .length ?? 5;
   const summaryCards: Array<{ label: string; value: number; unit: string }> = [
     {
-      label: 'Numbered BIB',
-      value: numberedBibCount,
+      label: 'เสื้อ BIB ทั้งหมด',
+      value: totalBibItems,
       unit: 'ตัว',
     },
     {
-      label: 'Officials',
+      label: 'CRAW ทั้งหมด',
+      value: totalCrawCount,
+      unit: 'ตัว',
+    },
+    {
+      label: 'Officials (กรรมการ)',
       value: officialsCount,
       unit: 'ตัว',
     },
     { label: 'Photo Shirts', value: photoCount, unit: 'ตัว' },
-    { label: 'ทั้งหมด / Total', value: data?.stock.length ?? 0, unit: 'ตัว' },
   ];
 
   return (
@@ -464,6 +488,36 @@ export function InventoryApp({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {adminMode && (
+              <button
+                disabled={saving}
+                title="นำเข้า / ซิงค์ข้อมูลทั้งหมด 87 รายการจาก TEF Data Base V2 เข้าสู่ Database"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                onClick={async () => {
+                  if (!confirm('ยืนยันการนำเข้า / ซิงค์ข้อมูลตั้งต้น 87 รายการจาก TEF Data Base V2 เข้าสู่ Firestore หรือไม่?')) return;
+                  setSaving(true);
+                  setMessage('');
+                  try {
+                    const res = await fetch('/api/inventory', {
+                      method: 'POST',
+                      headers: await requestHeaders({ 'Content-Type': 'application/json' }),
+                      body: JSON.stringify({ intent: 'reseed', adminPassword }),
+                    });
+                    const resJson = await res.json();
+                    if (!res.ok) throw new Error(resJson.error || 'ซิงค์ข้อมูลไม่สำเร็จ');
+                    setMessage(resJson.message || 'ซิงค์ข้อมูลเข้าสู่ Database สำเร็จเรียบร้อย');
+                    await load();
+                  } catch (syncErr: unknown) {
+                    const msg = syncErr instanceof Error ? syncErr.message : 'ซิงค์ข้อมูลไม่สำเร็จ';
+                    setMessage(`ข้อผิดพลาด: ${msg}`);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                {saving ? 'กำลังซิงค์…' : '🔄 ซิงค์เข้า Database (Seed V2)'}
+              </button>
+            )}
             <button
               disabled={!canEnterAdmin}
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
@@ -628,6 +682,7 @@ export function InventoryApp({
             >
               <NativeSelectOption>ทั้งหมด</NativeSelectOption>
               <NativeSelectOption>Thai Polo</NativeSelectOption>
+              <NativeSelectOption>TEF Office</NativeSelectOption>
               <NativeSelectOption>สำนักงาน/สมาคม</NativeSelectOption>
             </NativeSelect>
             <NativeSelect
@@ -635,7 +690,7 @@ export function InventoryApp({
               onChange={(e) => setColor(e.target.value)}
             >
               <NativeSelectOption>ทั้งหมด</NativeSelectOption>
-              {['Green', 'Orange'].map((c) => (
+              {['White', 'Orange', 'Lemon', 'Green'].map((c) => (
                 <NativeSelectOption key={c}>{c}</NativeSelectOption>
               ))}
             </NativeSelect>
@@ -661,17 +716,16 @@ export function InventoryApp({
             <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
               <div>
                 <h3 className="font-semibold">
-                  รายการที่ใช้ล่าสุด · กีฬาระหว่างโรงเรียน กรมพลศึกษา ประจำปีการศึกษา 2569
-                  (DPE 2026)
+                  รายการเสื้อ BIB ทั้งหมด · TEF Database ({filtered.length} รายการ)
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {search.trim()
-                    ? `พบ ${filtered.length} รายการ`
-                    : 'กรุณาค้นหา BIB เพื่อแสดงรายการ'}
+                    ? `ผลการค้นหา "${search.trim()}": พบ ${filtered.length} รายการ`
+                    : `แสดง ${filtered.length} รายการตามตัวกรอง`}
                 </p>
               </div>
-              <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">
-                BIB 27 สีต่างจากสต๊อกตั้งต้น
+              <span className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                ฐานข้อมูล TEF Data Base V2
               </span>
             </div>
             <Table>
@@ -681,20 +735,21 @@ export function InventoryApp({
                   <TableHead>สี</TableHead>
                   <TableHead>รายการ</TableHead>
                   <TableHead>ตำแหน่งปัจจุบัน</TableHead>
-                  <TableHead>สถานะ</TableHead>
+                  <TableHead>สถานะล่าสุด</TableHead>
+                  <TableHead>CRAW</TableHead>
+                  <TableHead>หมายเหตุ</TableHead>
                   <TableHead>เทียบสต๊อก</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!search.trim() ? (
+                {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={9}
                       className="py-12 text-center text-muted-foreground"
                     >
-                      พิมพ์หมายเลข BIB เพื่อค้นหาตำแหน่งล่าสุด / Enter a BIB number to
-                      search.
+                      ไม่พบรายการที่ตรงกับเงื่อนไขการค้นหา
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -704,16 +759,28 @@ export function InventoryApp({
                         <p className="text-lg font-semibold">
                           {item.bib_confirm}
                         </p>
+                        {item.rider && (
+                          <p className="text-xs text-muted-foreground">
+                            {item.rider} {item.club ? `(${item.club})` : ''}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="inline-flex items-center gap-2">
                           <span
-                            className={`size-3 rounded-full ${colorDot[item.color]}`}
+                            className={`size-3 rounded-full ${colorDot[item.color] ?? 'bg-slate-300'}`}
                           />
-                          {item.color}
+                          {item.color_detail || item.color}
                         </span>
                       </TableCell>
-                      <TableCell>{item.event}</TableCell>
+                      <TableCell>
+                        <span className="font-medium">{item.event}</span>
+                        {item.last_event && item.last_event !== item.event && (
+                          <span className="block text-[11px] text-muted-foreground">
+                            Last: {item.last_event}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${locationClass(item.current_location)}`}
@@ -721,19 +788,33 @@ export function InventoryApp({
                           {item.current_location}
                         </span>
                       </TableCell>
-                      <TableCell>{item.current_status}</TableCell>
+                      <TableCell>
+                        <span className="text-sm">{item.current_status}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold">{item.craw_qty ?? 5}</span> ตัว
+                      </TableCell>
+                      <TableCell>
+                        {item.remark ? (
+                          <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                            {item.remark}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <p
                           className={
                             item.match_status === 'ตรงกับสต๊อกตั้งต้น'
-                              ? 'text-emerald-700'
+                              ? 'text-emerald-700 font-medium'
                               : 'text-amber-700'
                           }
                         >
                           {item.match_status}
                         </p>
                         {item.stock_code && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground font-mono">
                             {item.stock_code}
                           </p>
                         )}
@@ -741,8 +822,8 @@ export function InventoryApp({
                       <TableCell>
                         <button
                           disabled={!isAdmin}
-                          title={isAdmin ? 'ทำรายการ' : 'เฉพาะ God Admin เท่านั้น'}
-                          className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-secondary"
+                          title={isAdmin ? 'ทำรายการ' : 'เฉพาะ Admin เท่านั้น'}
+                          className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-secondary disabled:opacity-50"
                           onClick={() => {
                             setForm((f) => ({
                               ...f,

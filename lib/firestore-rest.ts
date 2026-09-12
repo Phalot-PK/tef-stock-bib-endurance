@@ -131,13 +131,15 @@ export async function writeFirestoreDocuments(
   }
 }
 
-export async function seedFirestoreIfEmpty(token: string) {
-  const [stockDocuments, allocationDocuments] = await Promise.all([
-    listFirestoreCollection(token, 'stock_items'),
-    listFirestoreCollection(token, 'allocations'),
-  ]);
-  if (stockDocuments.length || allocationDocuments.length) {
-    return;
+export async function seedFirestore(token: string, force = false) {
+  if (!force) {
+    const [stockDocuments, allocationDocuments] = await Promise.all([
+      listFirestoreCollection(token, 'stock_items').catch(() => []),
+      listFirestoreCollection(token, 'allocations').catch(() => []),
+    ]);
+    if (stockDocuments.length > 0 && allocationDocuments.length >= 87) {
+      return { seeded: false, count: allocationDocuments.length };
+    }
   }
 
   const writes = [
@@ -148,17 +150,22 @@ export async function seedFirestoreIfEmpty(token: string) {
     })),
     ...allAllocationSeeds.map((item, index) => ({
       collection: 'allocations',
-      id: index + 1,
+      id: item.id ?? index + 1,
       record: {
+        id: item.id ?? index + 1,
         event: item.event,
         color: item.color,
+        color_detail: item.colorDetail ?? item.color,
         bib_confirm: item.bibConfirm,
         bib_sign: item.bibSign,
         rider: item.rider,
         club: item.club,
         initial_location: item.location,
         current_location: item.location,
-        current_status: 'พร้อมใช้งาน',
+        current_status: item.currentStatus || 'คงคลังตั้งต้น',
+        craw_qty: item.crawQty ?? 5,
+        last_event: item.lastEvent ?? '',
+        remark: item.remark ?? '',
         stock_code: item.stockCode,
         stock_color: item.stockColor,
         match_status: item.matchStatus,
@@ -167,10 +174,15 @@ export async function seedFirestoreIfEmpty(token: string) {
     {
       collection: 'app_meta',
       id: 'seed_version',
-      record: { value: 'firebase-tef-bib-v1' },
+      record: { value: 'tef-database-v2', updated_at: new Date().toISOString() },
     },
   ];
   await writeFirestoreDocuments(token, writes);
+  return { seeded: true, count: allAllocationSeeds.length };
+}
+
+export async function seedFirestoreIfEmpty(token: string) {
+  return seedFirestore(token, false);
 }
 
 export async function loadFirestoreInventory(token: string) {
@@ -227,16 +239,20 @@ export async function loadFirestoreInventory(token: string) {
     allocations.length > 0
       ? allocations
       : allAllocationSeeds.map((item, idx) => ({
-          id: idx + 1,
+          id: item.id ?? idx + 1,
           event: item.event,
           color: item.color,
+          color_detail: item.colorDetail ?? item.color,
           bib_confirm: item.bibConfirm,
           bib_sign: item.bibSign,
           rider: item.rider,
           club: item.club,
           initial_location: item.location,
           current_location: item.location,
-          current_status: 'พร้อมใช้งาน',
+          current_status: item.currentStatus || 'คงคลังตั้งต้น',
+          craw_qty: item.crawQty ?? 5,
+          last_event: item.lastEvent ?? '',
+          remark: item.remark ?? '',
           stock_code: item.stockCode,
           stock_color: item.stockColor,
           match_status: item.matchStatus,
