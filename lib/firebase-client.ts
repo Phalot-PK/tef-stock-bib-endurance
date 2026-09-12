@@ -31,10 +31,14 @@ let firebaseModulesPromise: Promise<{
 export function isFirebaseAuthEnabled() {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname;
-  const hostedByFirebase =
-    host.endsWith('.web.app') || host.endsWith('.firebaseapp.com');
+  const hostedByTarget =
+    host.endsWith('.web.app') ||
+    host.endsWith('.firebaseapp.com') ||
+    host.endsWith('.vercel.app') ||
+    host === 'localhost' ||
+    host === '127.0.0.1';
   return Boolean(firebaseConfig.apiKey) &&
-    (hostedByFirebase || process.env.NEXT_PUBLIC_FORCE_FIREBASE_AUTH === 'true');
+    (hostedByTarget || process.env.NEXT_PUBLIC_FORCE_FIREBASE_AUTH === 'true');
 }
 
 async function getFirebaseAuth() {
