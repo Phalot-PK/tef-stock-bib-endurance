@@ -95,6 +95,23 @@ async function firestoreRequest<T>(
   return (await response.json()) as T;
 }
 
+export async function getFirestoreDocument(
+  token: string,
+  collection: string,
+  id: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const document = await firestoreRequest<FirestoreDocument>(
+      token,
+      `/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`,
+    );
+    return firestoreRecord(document);
+  } catch (error) {
+    void error;
+    return null;
+  }
+}
+
 export async function listFirestoreCollection(token: string, collection: string) {
   const documents: FirestoreDocument[] = [];
   let pageToken = '';

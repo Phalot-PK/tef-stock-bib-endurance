@@ -66,10 +66,22 @@ type Payload = {
   viewer: {
     email: string;
     name: string;
-    role: 'owner' | 'secret-admin' | 'manager' | 'viewer';
-    displayRole: 'ผู้ใช้งานทั่วไป' | 'ผู้ใช้งานระดับสูง';
+    role:
+      | 'god-admin'
+      | 'super-admin'
+      | 'admin-secretary-general'
+      | 'admin-manager'
+      | 'admin-tef'
+      | 'admin-inspector'
+      | 'general'
+      | string;
+    displayRole: string;
     canEnterAdminMode: boolean;
+    canManageStock: boolean;
+    canManageAllocations: boolean;
+    canRecordTransaction: boolean;
     canComment: boolean;
+    canManageUsers: boolean;
     adminModeAvailable: boolean;
   };
   allocations: Allocation[];
@@ -293,7 +305,10 @@ export function InventoryApp({
         (stockGroupFilter === 'ทั้งหมด' || stockGroupFilter === 'ทั้งหมด / All groups' || stockGroup(item) === stockGroupFilter),
     );
   }, [data, search, stockGroupFilter]);
-  const isAdmin = Boolean(data?.viewer.canEnterAdminMode && adminMode);
+  const isAdmin = Boolean(
+    (data?.viewer.canEnterAdminMode && adminMode) ||
+      (data?.viewer.canRecordTransaction && !data?.viewer.canEnterAdminMode),
+  );
   const canEnterAdmin = Boolean(data?.viewer.canEnterAdminMode);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
@@ -469,18 +484,18 @@ export function InventoryApp({
 
   return (
     <main className="tef-theme min-h-screen text-foreground">
-      <header className="border-b border-white/15 bg-[#061f44] text-primary-foreground">
+      <header className="border-b border-white/15 bg-[#0b6e4f] text-primary-foreground">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-5 lg:px-8">
           <div>
             <div>
               <h1 className="text-xl font-semibold tracking-tight">
                 TEF Stock BIB Endurance Inventory
               </h1>
-              <p className="text-sm font-semibold text-amber-300">
+              <p className="text-sm font-semibold text-[#c9a227]">
                 ระบบจัดการเสื้อสำหรับการแข่งขัน Endurance (BIB) สำหรับนักกีฬา เจ้าหน้าที่ และกรรมการตัดสิน
               </p>
               {data?.viewer.email && (
-                <p className="mt-1 text-xs text-primary-foreground/70">
+                <p className="mt-1 text-xs text-primary-foreground/80">
                   {data.viewer.name} · {data.viewer.email} · {data.viewer.displayRole}
                   {adminMode ? ' · Admin mode' : ''}
                 </p>
@@ -520,7 +535,7 @@ export function InventoryApp({
             )}
             <button
               disabled={!canEnterAdmin}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#c9a227] px-4 text-sm font-semibold text-slate-950 hover:bg-[#d8b139] disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => (adminMode ? setOpen(true) : setAdminGateOpen(true))}
             >
               {adminMode
@@ -534,18 +549,18 @@ export function InventoryApp({
       </header>
 
       <div className="mx-auto flex max-w-[1500px] flex-col gap-5 px-5 py-7 lg:flex-row lg:px-8">
-        <aside className="w-full shrink-0 rounded-2xl border bg-[#061f44] p-3 text-white shadow-sm lg:sticky lg:top-5 lg:h-fit lg:w-56">
+        <aside className="w-full shrink-0 rounded-2xl border bg-[#075a40] p-3 text-white shadow-sm lg:sticky lg:top-5 lg:h-fit lg:w-56">
           <nav aria-label="เมนูหลัก / Main navigation" className="grid gap-1">
             <Link
               href="/"
-              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'q3' ? 'bg-[#8f1028] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'q3' ? 'bg-white/15 text-white border-l-4 border-[#c9a227]' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
             >
               Dashboard
               <span className="mt-0.5 block text-xs font-normal opacity-80">ภาพรวมและค้นหา BIB</span>
             </Link>
             <Link
               href="/stock"
-              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'stock' ? 'bg-[#8f1028] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'stock' ? 'bg-white/15 text-white border-l-4 border-[#c9a227]' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
             >
               Initial Stock
               <span className="mt-0.5 block text-xs font-normal opacity-80">สต๊อกตั้งต้นตามสถานที่</span>
@@ -567,11 +582,20 @@ export function InventoryApp({
             </button>
             <Link
               href="/history"
-              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'history' ? 'bg-[#8f1028] text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+              className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${tab === 'history' ? 'bg-white/15 text-white border-l-4 border-[#c9a227]' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
             >
               History
               <span className="mt-0.5 block text-xs font-normal opacity-80">ประวัติการทำรายการ</span>
             </Link>
+            {data?.viewer.canManageUsers && (
+              <Link
+                href="/admin/users"
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+              >
+                Manage Users
+                <span className="mt-0.5 block text-xs font-normal opacity-80">จัดการสิทธิ์ผู้ใช้งาน</span>
+              </Link>
+            )}
           </nav>
         </aside>
 
@@ -603,7 +627,7 @@ export function InventoryApp({
             />
             <button
               type="submit"
-              className="shrink-0 rounded-lg bg-[#8f1028] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#731021]"
+              className="shrink-0 rounded-lg bg-[#0b6e4f] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#075a40]"
             >
               ค้นหา / Search
             </button>

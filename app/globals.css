@@ -1,13 +1,17 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: Helvetica, Arial, sans-serif;
+  /* TH: Sukhumvit Set (licensed — falls back to Noto Sans Thai where it isn't
+     installed) · EN: Helvetica, matching the TEF brand system used across the
+     Figma/Claude Design mockups. */
+  --font-sans: 'Sukhumvit Set', 'Helvetica Neue', Helvetica, 'Noto Sans Thai', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -49,34 +53,39 @@
 }
 
 body {
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: 'Sukhumvit Set', 'Helvetica Neue', Helvetica, 'Noto Sans Thai', Arial, sans-serif;
   min-height: 100vh;
-  background: #f4f6f8;
+  background: #f4f6f5;
 }
 
 .tef-theme {
-  background: #f4f6f8;
+  background: #f4f6f5;
 }
 
 :root {
-  --background: #f4f6f8;
-  --foreground: #0f1d36;
+  /* TEF brand tokens — kept in sync with the Figma / Claude Design mockups. */
+  --tef-green: #0b6e4f;
+  --tef-green-dark: #075a40;
+  --tef-gold: #c9a227;
+
+  --background: #f4f6f5;
+  --foreground: #1f2a24;
   --card: #ffffff;
-  --card-foreground: #0f1d36;
+  --card-foreground: #1f2a24;
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #17324d;
+  --primary: #0b6e4f;
   --primary-foreground: #ffffff;
-  --secondary: #edf2f7;
-  --secondary-foreground: #0f1d36;
-  --muted: #edf2f7;
-  --muted-foreground: #64748b;
-  --accent: #e7b765;
-  --accent-foreground: #171a46;
+  --secondary: #eef5f1;
+  --secondary-foreground: #075a40;
+  --muted: #eef1ef;
+  --muted-foreground: #6b756f;
+  --accent: #c9a227;
+  --accent-foreground: #1f2a24;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #d7dee8;
+  --border: #e2e6e4;
   --input: #cbd5e1;
-  --ring: #8f8ee7;
+  --ring: #0b6e4f;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

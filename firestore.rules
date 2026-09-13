@@ -9,28 +9,47 @@ rules_version = '2';
 // - transactions/{transactionId}: id, allocation_id, action, person,
 //   from_location, to_location, note, created_at
 // - app_meta/seed_version: value
+// - admin_users/{email}: name, role, displayRole, active, source,
+//   updatedBy, updatedAt — Database V2 role assignments, editable live from
+//   the Manage Users screen. Doc id is the account's lowercase email.
 
 service cloud.firestore {
   match /databases/{database}/documents {
     function isApproved() {
       return request.auth != null && request.auth.token.email in [
-        'phalot.k@tefthailand.com',
-        'wannisa.j@tefthailand.com',
+        'sweetminty1@gmail.com',
+        'info@tefthailand.com',
         'nara.k@tefthailand.com',
+        'davin.s@tefthailand.com',
+        'phalot.k@tefthailand.com',
         'piyathida.y@tefthailand.com',
         'surakij.u@tefthailand.com',
-        'davin.s@tefthailand.com',
-        'angela.a@tefthailand.com',
         'gunwalada.m@tefthailand.com',
+        'angela.a@tefthailand.com',
         'ryan.e@tefthailand.com'
       ];
     }
 
-    function canManage() {
+    // God Admin, Super Admin, and the office-level Admin Users (Secretary
+    // General / Manager / TEF): full control over master records.
+    function canManageMaster() {
       return isApproved() && request.auth.token.email in [
-        'phalot.k@tefthailand.com',
-        'wannisa.j@tefthailand.com'
+        'sweetminty1@gmail.com',
+        'info@tefthailand.com',
+        'nara.k@tefthailand.com',
+        'davin.s@tefthailand.com',
+        'phalot.k@tefthailand.com'
       ];
+    }
+
+    // Everyone in canManageMaster(), plus Riding Establishment Inspectors, who
+    // may log เบิก/จ่าย/คืน/ย้าย transactions and update an existing
+    // allocation's location/status but not touch master records.
+    function canRecordTransaction() {
+      return canManageMaster() || (isApproved() && request.auth.token.email in [
+        'piyathida.y@tefthailand.com',
+        'surakij.u@tefthailand.com'
+      ]);
     }
 
     function hasOnly(fields) {
@@ -87,14 +106,14 @@ service cloud.firestore {
 
     match /stock_items/{stockCode} {
       allow read: if isApproved();
-      allow create, update: if canManage() && validStock();
+      allow create, update: if canManageMaster() && validStock();
       allow delete: if false;
     }
 
     match /allocations/{allocationId} {
       allow read: if isApproved();
-      allow create: if canManage() && validAllocation();
-      allow update: if canManage() && validAllocation() &&
+      allow create: if canManageMaster() && validAllocation();
+      allow update: if canRecordTransaction() && validAllocation() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'current_location', 'current_status'
         ]);
@@ -103,15 +122,60 @@ service cloud.firestore {
 
     match /transactions/{transactionId} {
       allow read: if isApproved();
-      allow create: if canManage() && validTransaction();
+      allow create: if canRecordTransaction() && validTransaction();
       allow update, delete: if false;
     }
 
     match /app_meta/{metaId} {
       allow read: if isApproved();
-      allow create, update: if canManage() &&
+      allow create, update: if canManageMaster() &&
         request.resource.data.keys().hasOnly(['value']) &&
         request.resource.data.value is string;
+      allow delete: if false;
+    }
+
+    // Database V2 role assignments. Bootstrap admins (hardcoded, same as
+    // canManageMaster's top tier) can always manage users even before any
+    // admin_users docs exist; once an account has its own admin_users doc,
+    // its live role (god-admin/super-admin) also grants management — so a
+    // role granted through the Manage Users screen itself takes effect with
+    // no rules/code deploy needed.
+    function isBootstrapTopAdmin() {
+      return request.auth != null && request.auth.token.email in [
+        'sweetminty1@gmail.com',
+        'info@tefthailand.com'
+      ];
+    }
+
+    function canManageUsers() {
+      return isBootstrapTopAdmin() || (
+        request.auth != null &&
+        exists(/databases/$(database)/documents/admin_users/$(request.auth.token.email)) &&
+        get(/databases/$(database)/documents/admin_users/$(request.auth.token.email)).data.active != false &&
+        get(/databases/$(database)/documents/admin_users/$(request.auth.token.email)).data.role in ['god-admin', 'super-admin']
+      );
+    }
+
+    function validAdminUser() {
+      return hasAll(['name', 'role', 'displayRole', 'active']) &&
+        request.resource.data.name is string &&
+        request.resource.data.role in [
+          'god-admin', 'super-admin', 'admin-secretary-general',
+          'admin-manager', 'admin-tef', 'admin-inspector', 'general'
+        ] &&
+        request.resource.data.displayRole is string &&
+        request.resource.data.active is bool;
+    }
+
+    match /admin_users/{userId} {
+      allow read: if request.auth != null &&
+        (request.auth.token.email == userId || canManageUsers());
+      // Self-provisioning on first login writes exactly the caller's own
+      // bootstrap fallback record (lib/access.ts) with source "bootstrap";
+      // it can never grant itself a different role than that fallback.
+      allow create: if request.auth != null && request.auth.token.email == userId &&
+        validAdminUser() && request.resource.data.source == 'bootstrap';
+      allow create, update: if canManageUsers() && validAdminUser();
       allow delete: if false;
     }
   }

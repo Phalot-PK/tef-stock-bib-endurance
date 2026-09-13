@@ -1,4 +1,4 @@
-import { getAllowedUser } from '@/lib/access';
+import { getAllowedUser, resolveAllowedUser, type AllowedUser } from '@/lib/access';
 import {
   applyFirestoreTransaction,
   loadFirestoreInventory,
@@ -6,8 +6,6 @@ import {
 } from '@/lib/firestore-rest';
 
 export const runtime = 'nodejs';
-
-type AllowedUser = NonNullable<ReturnType<typeof getAllowedUser>>;
 
 type FirebaseSession = {
   token: string;
@@ -18,7 +16,7 @@ function authenticatedEmail(request: Request) {
   return request.headers.get('oai-authenticated-user-email')?.trim() || '';
 }
 
-function firebaseSession(request: Request): FirebaseSession | null {
+async function firebaseSession(request: Request): Promise<FirebaseSession | null> {
   const header = request.headers.get('authorization') ?? '';
   if (!header.toLowerCase().startsWith('bearer ')) return null;
   const token = header.slice(7).trim();
@@ -30,7 +28,7 @@ function firebaseSession(request: Request): FirebaseSession | null {
     const decoded = JSON.parse(
       atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')),
     ) as { email?: string };
-    const viewer = decoded.email ? getAllowedUser(decoded.email) : null;
+    const viewer = decoded.email ? await resolveAllowedUser(decoded.email, token) : null;
     return viewer ? { token, viewer } : null;
   } catch {
     return null;
@@ -41,11 +39,18 @@ function viewerPayload(viewer: AllowedUser) {
   return {
     email: viewer.email,
     name: viewer.name,
-    role: viewer.role === 'secret-admin' ? 'viewer' : viewer.role,
+    role: viewer.role,
     displayRole: viewer.displayRole,
     canEnterAdminMode: viewer.canEnterAdminMode,
+    canManageStock: viewer.canManageStock,
+    canManageAllocations: viewer.canManageAllocations,
+    canRecordTransaction: viewer.canRecordTransaction,
     canComment: viewer.canComment,
-    adminModeAvailable: true,
+    canManageUsers: viewer.canManageUsers,
+    adminModeAvailable: Boolean(
+      process.env.ADMIN_MODE_PASSWORD_PRIMARY ||
+        process.env.ADMIN_MODE_PASSWORD_SECONDARY,
+    ),
   };
 }
 
@@ -62,7 +67,7 @@ function unauthorized(message: string) {
 }
 
 export async function GET(request: Request) {
-  const firebase = firebaseSession(request);
+  const firebase = await firebaseSession(request);
   if (!firebase) {
     const allowed = getAllowedUser(authenticatedEmail(request));
     return unauthorized(
@@ -84,14 +89,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const firebase = firebaseSession(request);
+  const firebase = await firebaseSession(request);
   if (!firebase) return unauthorized('กรุณาเข้าสู่ระบบด้วย Google');
 
   const viewer = firebase.viewer;
-  if (!viewer.canEnterAdminMode) {
-    return unauthorized('บัญชีนี้ไม่มีสิทธิ์เข้าสู่โหมด Admin');
-  }
-
   const body = (await request.json()) as {
     intent?: 'enter-admin' | 'transaction' | 'reseed';
     allocationId?: number;
@@ -102,11 +103,23 @@ export async function POST(request: Request) {
     adminPassword?: string;
   };
 
-  if (!isAdminPasswordValid(body.adminPassword ?? '')) {
-    return unauthorized('รหัสโหมด Admin ไม่ถูกต้อง หรือยังไม่ได้ตั้งค่ารหัสใน API');
+  if (body.intent === 'enter-admin') {
+    if (!viewer.canEnterAdminMode) {
+      return unauthorized('บัญชีนี้ไม่มีสิทธิ์เข้าสู่โหมด Admin');
+    }
+    if (!isAdminPasswordValid(body.adminPassword ?? '')) {
+      return unauthorized('รหัสโหมด Admin ไม่ถูกต้อง หรือยังไม่ได้ตั้งค่ารหัสใน API');
+    }
+    return Response.json({ ok: true });
   }
-  if (body.intent === 'enter-admin') return Response.json({ ok: true });
+
   if (body.intent === 'reseed') {
+    if (!viewer.canEnterAdminMode) {
+      return unauthorized('บัญชีนี้ไม่มีสิทธิ์สั่งซิงค์ฐานข้อมูล');
+    }
+    if (!isAdminPasswordValid(body.adminPassword ?? '')) {
+      return unauthorized('รหัสโหมด Admin ไม่ถูกต้อง หรือยังไม่ได้ตั้งค่ารหัสใน API');
+    }
     try {
       const seedResult = await seedFirestore(firebase.token, true);
       return Response.json({
@@ -120,6 +133,16 @@ export async function POST(request: Request) {
         { status: 502 },
       );
     }
+  }
+
+  // Default intent: record a transaction
+  if (!viewer.canRecordTransaction) {
+    return unauthorized('บัญชีนี้ไม่มีสิทธิ์ทำรายการเบิก-จ่าย-คืน-ย้าย');
+  }
+
+  // God/Super Admin re-confirm Admin password before transaction
+  if (viewer.canEnterAdminMode && !isAdminPasswordValid(body.adminPassword ?? '')) {
+    return unauthorized('รหัสโหมด Admin ไม่ถูกต้อง หรือยังไม่ได้ตั้งค่ารหัสใน API');
   }
 
   if (!body.allocationId || !body.action || !body.person?.trim()) {
