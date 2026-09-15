@@ -518,7 +518,7 @@ export function InventoryApp({
                       headers: await requestHeaders({ 'Content-Type': 'application/json' }),
                       body: JSON.stringify({ intent: 'reseed', adminPassword }),
                     });
-                    const resJson = await res.json();
+                    const resJson = (await res.json()) as { error?: string; message?: string };
                     if (!res.ok) throw new Error(resJson.error || 'ซิงค์ข้อมูลไม่สำเร็จ');
                     setMessage(resJson.message || 'ซิงค์ข้อมูลเข้าสู่ Database สำเร็จเรียบร้อย');
                     await load();
