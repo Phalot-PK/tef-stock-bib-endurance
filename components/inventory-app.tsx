@@ -544,6 +544,15 @@ export function InventoryApp({
                   ? 'เข้าสู่โหมด Admin / Admin mode'
                   : 'View only / ดูอย่างเดียว'}
             </button>
+            {data?.viewer.email && (
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/30 px-4 text-sm font-semibold text-white hover:bg-white/10"
+                onClick={() => void signOutFromFirebase()}
+              >
+                ออกจากระบบ / Logout
+              </button>
+            )}
           </div>
         </div>
       </header>
